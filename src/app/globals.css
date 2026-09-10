@@ -1,0 +1,229 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css");
+@import url("https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ───────────────────────────────────────────
+   N.ROUND 디자인 토큰 — 제공된 시안 기준
+   ─────────────────────────────────────────── */
+:root {
+  /* 배경 */
+  --bg: #ffffff;
+  --bg-soft: #fbf9f9;
+  --card: #ffffff;
+  --border: #f0eceb;
+
+  /* 글자 */
+  --ink: #2b2726;
+  --body: #5c5453;
+  --muted: #9b9391;
+
+  /* 레드 (핵심 색) */
+  --red: #e94e3c;
+  --red-deep: #d63a28;
+  --red-tint: #fde8e4;
+  --red-wash: #fef4f2;
+
+  /* 민트 (보조 색 — 레코드 라벨) */
+  --mint: #a9dce0;
+  --mint-bg: #eaf7f8;
+  --mint-text: #2f8189;
+
+  --font-display: "Archivo Black", sans-serif;
+  --font-body: "Pretendard", -apple-system, sans-serif;
+}
+
+html {
+  background: var(--bg-soft);
+}
+
+body {
+  background: var(--bg-soft);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .nr-page {
+    @apply mx-auto w-full max-w-[480px] px-4;
+    padding-bottom: 110px;
+  }
+
+  /* 워드마크 — 두꺼운 이탤릭 */
+  .nr-wordmark {
+    font-family: var(--font-display);
+    font-style: italic;
+    letter-spacing: -0.035em;
+    line-height: 1;
+    color: var(--red);
+  }
+
+  /* 섹션 제목 */
+  .nr-h2 {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .nr-more {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* 카드 */
+  .nr-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+  }
+
+  .nr-card-tint {
+    background: var(--red-wash);
+    border-color: var(--red-tint);
+  }
+
+  /* 버튼 */
+  .nr-btn {
+    @apply flex w-full items-center justify-center gap-1.5 rounded-xl py-3.5;
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+  }
+
+  .nr-btn-primary {
+    background: var(--red);
+    color: #fff;
+  }
+
+  .nr-btn-ghost {
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--body);
+  }
+
+  .nr-btn-sm {
+    @apply rounded-lg px-3 py-1.5;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--body);
+    cursor: pointer;
+  }
+
+  .nr-btn-sm-solid {
+    background: var(--red);
+    border-color: var(--red);
+    color: #fff;
+  }
+
+  .nr-btn-sm-ink {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
+  }
+
+  /* 입력 */
+  .nr-input {
+    @apply w-full rounded-xl px-4 py-3;
+    background: #fff;
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-size: 15px;
+    font-family: inherit;
+    outline: none;
+  }
+
+  .nr-input::placeholder {
+    color: var(--muted);
+  }
+
+  .nr-input:focus {
+    border-color: var(--red);
+  }
+
+  /* 배지 */
+  .nr-badge {
+    @apply inline-flex items-center rounded-md px-2 py-1;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .nr-badge-live {
+    background: var(--mint);
+    color: #1f6b73;
+  }
+
+  .nr-badge-red {
+    background: var(--red);
+    color: #fff;
+  }
+
+  .nr-badge-tint {
+    background: var(--red-tint);
+    color: var(--red-deep);
+  }
+
+  /* 날짜 칩 — 시안의 4월/10/목 블록 */
+  .nr-datechip {
+    @apply flex flex-col items-center justify-center rounded-xl;
+    width: 46px;
+    padding: 7px 0;
+    background: var(--red-tint);
+    flex: none;
+  }
+
+  /* 아이콘을 감싸는 연분홍 사각형 */
+  .nr-iconbox {
+    @apply grid place-items-center rounded-xl;
+    width: 42px;
+    height: 42px;
+    background: var(--red-tint);
+    color: var(--red);
+    flex: none;
+  }
+
+  /* 투표 막대 */
+  .nr-bar {
+    @apply w-full overflow-hidden rounded-full;
+    height: 6px;
+    background: var(--red-tint);
+  }
+
+  .nr-bar-fill {
+    @apply h-full rounded-full;
+    background: var(--red);
+  }
+
+  .nr-empty {
+    @apply rounded-2xl px-4 py-8 text-center;
+    border: 1px dashed var(--red-tint);
+    background: var(--red-wash);
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
+
+@keyframes nr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.nr-disc-spin {
+  animation: nr-spin 14s linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nr-disc-spin {
+    animation: none;
+  }
+}
