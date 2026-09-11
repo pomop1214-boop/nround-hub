@@ -14,14 +14,14 @@ export default function AppHeader({ name }: { name?: string }) {
         <span style={{ color: "var(--body)" }}>
           <Icon name="bell" size={20} />
         </span>
-        {name && (
-          <span
-            className="grid h-9 w-9 place-items-center rounded-full text-[13px] font-bold"
-            style={{ background: "var(--red-tint)", color: "var(--red-deep)" }}
-          >
-            {name.slice(0, 1)}
-          </span>
-        )}
+        <Link
+          href="/me"
+          className="grid h-9 w-9 place-items-center rounded-full text-[13px] font-bold"
+          style={{ background: "var(--red-tint)", color: "var(--red-deep)" }}
+          aria-label="마이 페이지"
+        >
+          {name ? name.slice(0, 1) : <Icon name="user" size={16} />}
+        </Link>
       </div>
     </header>
   );

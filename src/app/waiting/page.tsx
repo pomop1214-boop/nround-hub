@@ -885,7 +885,7 @@ export default function WaitingPage() {
 
       {nextBarName && <div className="nextbar">곧 차례예요 — {nextBarName} 님이 다음 순서예요</div>}
 
-      <style jsx>{`
+      <style jsx global>{`
         .page-bg {
           --bg: #fff6f1;
           --card: #fff;
@@ -912,7 +912,7 @@ export default function WaitingPage() {
           margin: 0 auto;
           padding: 0 18px 220px;
         }
-        button {
+        .page-bg button {
           font-family: inherit;
         }
         .hdr {
@@ -1300,7 +1300,7 @@ export default function WaitingPage() {
           color: var(--muted);
           margin-bottom: 8px;
         }
-        input {
+        .page-bg input {
           width: 100%;
           box-sizing: border-box;
           background: #fbf3ef;
@@ -1312,11 +1312,11 @@ export default function WaitingPage() {
           outline: none;
           font-family: inherit;
         }
-        input::placeholder {
+        .page-bg input::placeholder {
           color: var(--muted);
           opacity: 0.7;
         }
-        input:focus {
+        .page-bg input:focus {
           border-color: var(--coral);
         }
         .confirm-text {
@@ -1487,7 +1487,7 @@ export default function WaitingPage() {
           }
         }
         @media (prefers-reduced-motion: reduce) {
-          * {
+          .page-bg * {
             animation: none !important;
           }
         }

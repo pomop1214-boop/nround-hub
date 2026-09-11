@@ -2,8 +2,24 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import Icon from "@/components/Icon";
 
-type Member = { id: string; name: string; active: boolean; member_type: string };
+type Member = {
+  id: string;
+  name: string;
+  active: boolean;
+  member_type: string;
+  role: string | null;
+};
+
+const ROLES: { key: string; label: string }[] = [
+  { key: "sub_lead", label: "부운영장" },
+  { key: "supporter", label: "서포터즈" },
+];
+
+function roleLabel(role: string | null) {
+  return ROLES.find((r) => r.key === role)?.label ?? null;
+}
 type CredRow = { member_id: string; updated_at: string };
 
 function randomPassword() {
@@ -23,6 +39,7 @@ export default function MembersPanel() {
   const [pwFor, setPwFor] = useState<string | null>(null);
   const [pwValue, setPwValue] = useState("");
   const [pwSaved, setPwSaved] = useState<{ name: string; pw: string } | null>(null);
+  const [roleFor, setRoleFor] = useState<string | null>(null);
 
   const pin = typeof window !== "undefined" ? localStorage.getItem("nround-admin-pin") ?? "" : "";
 
@@ -73,8 +90,15 @@ export default function MembersPanel() {
   }
 
   async function remove(m: Member) {
-    if (!confirm(`${m.name} 님을 명단에서 완전히 지울까요?\n투표·회비 기록도 함께 지워져요.`)) return;
+    if (!confirm(`${m.name} 님을 탈퇴 처리할까요?\n투표·회비·규정 동의 기록도 함께 지워지고 되돌릴 수 없어요.`))
+      return;
     await supabase.from("crew_members").delete().eq("id", m.id);
+    load();
+  }
+
+  async function setRole(m: Member, role: string | null) {
+    await supabase.from("crew_members").update({ role }).eq("id", m.id);
+    setRoleFor(null);
     load();
   }
 
@@ -148,6 +172,12 @@ export default function MembersPanel() {
                 >
                   {m.name}
                 </span>
+                {roleLabel(m.role) && (
+                  <span className="nr-badge nr-badge-red flex items-center gap-1">
+                    <Icon name="crown" size={11} />
+                    {roleLabel(m.role)}
+                  </span>
+                )}
                 {m.member_type === "guest" && <span className="nr-badge nr-badge-tint">비회원</span>}
                 <span
                   className="text-[10.5px] font-bold"
@@ -163,13 +193,24 @@ export default function MembersPanel() {
                     setPwFor(editing ? null : m.id);
                     setPwValue(editing ? "" : randomPassword());
                     setPwSaved(null);
+                    setRoleFor(null);
                   }}
                   className="nr-btn-sm"
                 >
-                  {has ? "비밀번호 변경" : "비밀번호 정하기"}
+                  비밀번호 변경
+                </button>
+                <button
+                  onClick={() => {
+                    setRoleFor(roleFor === m.id ? null : m.id);
+                    setPwFor(null);
+                  }}
+                  className={"nr-btn-sm flex items-center gap-1 " + (m.role ? "nr-btn-sm-solid" : "")}
+                >
+                  <Icon name="crown" size={12} />
+                  운영진 임명
                 </button>
                 <button onClick={() => toggleType(m)} className="nr-btn-sm">
-                  {m.member_type === "guest" ? "회원으로" : "비회원으로"}
+                  {m.member_type === "guest" ? "회원으로 전환" : "비회원으로 전환"}
                 </button>
                 <button onClick={() => toggleActive(m)} className="nr-btn-sm">
                   {m.active ? "쉬는중으로" : "활동중으로"}
@@ -179,9 +220,40 @@ export default function MembersPanel() {
                   className="nr-btn-sm"
                   style={{ borderColor: "transparent", background: "transparent" }}
                 >
-                  삭제
+                  탈퇴
                 </button>
               </div>
+
+              {roleFor === m.id && (
+                <div
+                  className="mt-2 rounded-xl p-2.5"
+                  style={{ background: "var(--red-wash)", border: "1px solid var(--red-tint)" }}
+                >
+                  <p className="text-[11.5px]" style={{ color: "var(--muted)" }}>
+                    {m.name} 님의 직책을 정해주세요
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {ROLES.map((r) => (
+                      <button
+                        key={r.key}
+                        onClick={() => setRole(m, r.key)}
+                        className={
+                          "nr-btn-sm flex items-center gap-1 " + (m.role === r.key ? "nr-btn-sm-solid" : "")
+                        }
+                      >
+                        <Icon name="crown" size={12} />
+                        {r.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setRole(m, null)}
+                      className={"nr-btn-sm " + (!m.role ? "nr-btn-sm-solid" : "")}
+                    >
+                      직책 없음
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {editing && (
                 <div className="mt-2 flex gap-1.5">
@@ -231,7 +303,9 @@ export default function MembersPanel() {
       <p className="mt-3 text-[11.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
         비밀번호는 저장하는 순간 암호화돼서, 나중에 다시 열어볼 수 없어요. 잊어버리면 새로 정해주면 됩니다.
         <br />
-        잠시 쉬는 크루원은 삭제 대신 &apos;쉬는중&apos;으로 바꿔주세요. 명단에서만 빠지고 기록은 남아요.
+        잠시 쉬는 크루원은 탈퇴 대신 &apos;쉬는중&apos;으로 바꿔주세요. 명단에서만 빠지고 기록은 남아요.
+        <br />
+        탈퇴는 기록까지 함께 지워지고 되돌릴 수 없어요.
       </p>
     </section>
   );

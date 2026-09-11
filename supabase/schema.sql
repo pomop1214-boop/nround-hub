@@ -241,3 +241,10 @@ create index if not exists events_starts_at_idx on events (starts_at);
 alter table events enable row level security;
 drop policy if exists "events access" on events;
 create policy "events access" on events for all using (true) with check (true);
+
+-- ─────────────────────────────────────────────
+-- 운영진 임명
+-- ─────────────────────────────────────────────
+-- null = 일반 크루원, 'sub_lead' = 부운영장, 'supporter' = 서포터즈
+alter table crew_members
+  add column if not exists role text;

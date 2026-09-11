@@ -11,7 +11,13 @@ import EventList, { type EventRow } from "@/components/EventList";
 const ME_KEY = "nround_me_v1";
 const ACCOUNT = { bank: "카카오뱅크", number: "3333315776031", label: "N.ROUND 모임통장" };
 
-type Member = { id: string; name: string; member_type: string };
+type Member = { id: string; name: string; member_type: string; role: string | null };
+
+function roleLabel(role: string | null) {
+  if (role === "sub_lead") return "부운영장";
+  if (role === "supporter") return "서포터즈";
+  return null;
+}
 type Period = {
   id: string;
   label: string;
@@ -50,7 +56,7 @@ export default function MyPage() {
     }
     try {
       const [{ data: m }, { data: ps }, { data: vs }, { data: evs }] = await Promise.all([
-        supabase.from("crew_members").select("id, name, member_type").eq("id", meId).maybeSingle(),
+        supabase.from("crew_members").select("id, name, member_type, role").eq("id", meId).maybeSingle(),
         supabase
           .from("dues_periods")
           .select("*")
@@ -184,9 +190,17 @@ export default function MyPage() {
           <p className="text-[16px] font-extrabold" style={{ color: "var(--ink)" }}>
             {me?.name ?? "이름 없음"}
           </p>
-          <p className="mt-0.5 text-[12px]" style={{ color: "var(--muted)" }}>
-            {isGuest ? "비회원" : "회원"}
-          </p>
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="text-[12px]" style={{ color: "var(--muted)" }}>
+              {isGuest ? "비회원" : "회원"}
+            </span>
+            {roleLabel(me?.role ?? null) && (
+              <span className="nr-badge nr-badge-red flex items-center gap-1">
+                <Icon name="crown" size={11} />
+                {roleLabel(me?.role ?? null)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

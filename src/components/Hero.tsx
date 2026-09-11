@@ -2,7 +2,7 @@
 export default function Hero() {
   return (
     <div
-      className="relative overflow-hidden rounded-2xl px-5 pb-5 pt-7"
+      className="relative overflow-hidden rounded-2xl px-5 pb-8 pt-8"
       style={{ background: "linear-gradient(140deg, #EF5643 0%, #DA3F2D 100%)" }}
     >
       <svg
@@ -50,33 +50,6 @@ export default function Hero() {
         <p className="nr-wordmark mt-2.5" style={{ fontSize: 38, color: "#fff" }}>
           N.ROUND
         </p>
-        <p className="mt-2.5 text-[13px]" style={{ color: "rgba(255,255,255,.95)" }}>
-          함께 부르는, 새로운 라운드.
-        </p>
-
-        <div className="mt-4 flex justify-center">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-bold"
-            style={{ background: "#fff", color: "var(--red)" }}
-          >
-            오늘도 한 걸음 더
-            <span aria-hidden="true">→</span>
-          </span>
-        </div>
-
-        <div className="mt-4 flex justify-center gap-1.5">
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              className="block rounded-full"
-              style={{
-                width: 5,
-                height: 5,
-                background: i === 0 ? "#fff" : "rgba(255,255,255,.45)",
-              }}
-            />
-          ))}
-        </div>
       </div>
     </div>
   );

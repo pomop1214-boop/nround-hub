@@ -19,6 +19,7 @@ const PATHS: Record<string, string> = {
   settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2",
   arrow: "M5 12h14M13 6l6 6-6 6",
+  crown: "M3 7l4.5 4L12 4l4.5 7L21 7l-2 11H5L3 7Z",
   pin: "M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11ZM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
   calendar: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z",
 };
