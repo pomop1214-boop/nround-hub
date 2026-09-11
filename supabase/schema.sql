@@ -248,3 +248,27 @@ create policy "events access" on events for all using (true) with check (true);
 -- null = 일반 크루원, 'sub_lead' = 부운영장, 'supporter' = 서포터즈
 alter table crew_members
   add column if not exists role text;
+
+-- ─────────────────────────────────────────────
+-- 가입 / 비밀번호 재발급 요청
+-- ─────────────────────────────────────────────
+
+-- type: 'join' = 가입 요청, 'reset' = 비밀번호 재발급 요청
+-- status: 'pending' | 'done'
+create table if not exists member_requests (
+  id uuid primary key default gen_random_uuid(),
+  type text not null,
+  name text not null,
+  birth_date text,
+  status text not null default 'pending',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists member_requests_status_idx on member_requests (status, created_at desc);
+
+-- 요청은 로그인 전에도 보낼 수 있어야 해서 서버(service_role)에서만 다룹니다.
+alter table member_requests enable row level security;
+
+-- 알림을 어느 크루원의 기기인지 알 수 있게 연결합니다(운영장에게만 보내기 위함).
+alter table push_subscriptions
+  add column if not exists member_id uuid references crew_members (id) on delete set null;

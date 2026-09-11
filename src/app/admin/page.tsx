@@ -10,10 +10,12 @@ import DuesPeriodsPanel from "@/components/admin/DuesPeriodsPanel";
 import StrikesPanel from "@/components/admin/StrikesPanel";
 import RulesPanel from "@/components/admin/RulesPanel";
 import EventsPanel from "@/components/admin/EventsPanel";
+import RequestsPanel from "@/components/admin/RequestsPanel";
 
-type Tab = "notice" | "events" | "members" | "dues" | "strikes" | "rules";
+type Tab = "requests" | "notice" | "events" | "members" | "dues" | "strikes" | "rules";
 
 const TABS: { key: Tab; label: string }[] = [
+  { key: "requests", label: "요청" },
   { key: "notice", label: "공지 발송" },
   { key: "events", label: "일정" },
   { key: "members", label: "크루원" },
@@ -87,7 +89,7 @@ function NoticeForm() {
 }
 
 function AdminBody() {
-  const [tab, setTab] = useState<Tab>("notice");
+  const [tab, setTab] = useState<Tab>("requests");
 
   return (
     <>
@@ -104,6 +106,7 @@ function AdminBody() {
       </div>
 
       <div className="mt-4">
+        {tab === "requests" && <RequestsPanel />}
         {tab === "notice" && <NoticeForm />}
         {tab === "events" && <EventsPanel />}
         {tab === "members" && <MembersPanel />}

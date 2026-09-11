@@ -23,6 +23,7 @@ drop table if exists rule_acks cascade;
 drop table if exists rules cascade;
 drop table if exists rule_categories cascade;
 
+drop table if exists member_requests cascade;
 drop table if exists events cascade;
 
 

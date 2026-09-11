@@ -14,6 +14,7 @@ const ACCOUNT = { bank: "카카오뱅크", number: "3333315776031", label: "N.RO
 type Member = { id: string; name: string; member_type: string; role: string | null };
 
 function roleLabel(role: string | null) {
+  if (role === "lead") return "운영장";
   if (role === "sub_lead") return "부운영장";
   if (role === "supporter") return "서포터즈";
   return null;

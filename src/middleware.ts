@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, readSessionEdge } from "@/lib/authEdge";
 
 /** 로그인 없이 열 수 있는 경로 */
-const PUBLIC = ["/login", "/api/login", "/api/logout", "/api/setup-status"];
+const PUBLIC = ["/login", "/api/login", "/api/logout", "/api/setup-status", "/api/request"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

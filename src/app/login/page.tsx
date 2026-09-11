@@ -15,6 +15,13 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [firstTime, setFirstTime] = useState(false);
 
+  const [mode, setMode] = useState<null | "join" | "reset">(null);
+  const [reqName, setReqName] = useState("");
+  const [birth, setBirth] = useState("");
+  const [reqBusy, setReqBusy] = useState(false);
+  const [reqError, setReqError] = useState("");
+  const [sent, setSent] = useState(false);
+
   useEffect(() => {
     fetch("/api/setup-status")
       .then((r) => r.json())
@@ -49,6 +56,29 @@ export default function LoginPage() {
     }
   }
 
+  async function sendRequest(e: React.FormEvent) {
+    e.preventDefault();
+    setReqBusy(true);
+    setReqError("");
+    try {
+      const res = await fetch("/api/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: mode, name: reqName, birthDate: birth }),
+      });
+      const data = await res.json();
+      setReqBusy(false);
+      if (!res.ok) {
+        setReqError(data.error ?? "보내지 못했어요.");
+        return;
+      }
+      setSent(true);
+    } catch {
+      setReqBusy(false);
+      setReqError("연결에 실패했어요.");
+    }
+  }
+
   return (
     <main className="nr-page flex min-h-screen flex-col justify-center" style={{ paddingBottom: 40 }}>
       <div
@@ -74,9 +104,6 @@ export default function LoginPage() {
             VOCAL CREW
           </p>
           <h1 className="nr-wordmark mt-2" style={{ fontSize: 34, color: "#fff" }}>N.ROUND</h1>
-          <p className="mt-2 text-[13px]" style={{ color: "rgba(255,255,255,.9)" }}>
-            함께 부르는, 새로운 라운드.
-          </p>
         </div>
       </div>
 
@@ -121,11 +148,73 @@ export default function LoginPage() {
           </Link>
         </div>
       ) : (
-        <p className="mt-6 text-center text-[12px] leading-relaxed" style={{ color: "var(--muted)" }}>
-          비밀번호는 운영자가 정해서 알려줘요.
-          <br />
-          모르면 시안에게 물어보세요.
-        </p>
+        <div className="mt-5">
+          {sent ? (
+            <div
+              className="rounded-xl px-4 py-4 text-center"
+              style={{ background: "var(--mint-bg)", border: "1px solid var(--mint)" }}
+            >
+              <p className="text-[13.5px] font-bold" style={{ color: "var(--mint-text)" }}>
+                요청을 보냈어요
+              </p>
+              <p className="mt-1 text-[12px]" style={{ color: "var(--mint-text)" }}>
+                운영장이 확인하면 연락드릴게요.
+              </p>
+            </div>
+          ) : mode === null ? (
+            <div className="flex gap-2">
+              <button onClick={() => setMode("join")} className="nr-btn nr-btn-ghost flex-1 py-3">
+                회원가입 요청
+              </button>
+              <button onClick={() => setMode("reset")} className="nr-btn nr-btn-ghost flex-1 py-3">
+                비밀번호 재발급
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={sendRequest} className="nr-card flex flex-col gap-2 p-4">
+              <p className="text-[13.5px] font-bold" style={{ color: "var(--ink)" }}>
+                {mode === "join" ? "회원가입 요청" : "비밀번호 재발급 요청"}
+              </p>
+              <input
+                autoFocus
+                value={reqName}
+                onChange={(e) => setReqName(e.target.value)}
+                placeholder="이름"
+                className="nr-input"
+              />
+              {mode === "join" && (
+                <input
+                  value={birth}
+                  onChange={(e) => setBirth(e.target.value)}
+                  placeholder="생년월일 (예: 1999-12-14)"
+                  inputMode="numeric"
+                  className="nr-input"
+                />
+              )}
+              {reqError && (
+                <p className="text-[12px]" style={{ color: "var(--red-deep)" }}>{reqError}</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode(null);
+                    setReqError("");
+                  }}
+                  className="nr-btn nr-btn-ghost flex-1 py-2.5"
+                >
+                  취소
+                </button>
+                <button type="submit" disabled={reqBusy} className="nr-btn nr-btn-primary flex-1 py-2.5">
+                  {reqBusy ? "보내는 중" : "보내기"}
+                </button>
+              </div>
+              <p className="text-[11.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
+                운영장에게 알림이 가요.
+              </p>
+            </form>
+          )}
+        </div>
       )}
     </main>
   );

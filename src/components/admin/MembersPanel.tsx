@@ -13,6 +13,7 @@ type Member = {
 };
 
 const ROLES: { key: string; label: string }[] = [
+  { key: "lead", label: "운영장" },
   { key: "sub_lead", label: "부운영장" },
   { key: "supporter", label: "서포터즈" },
 ];
@@ -31,6 +32,7 @@ function randomPassword() {
 export default function MembersPanel() {
   const [members, setMembers] = useState<Member[]>([]);
   const [name, setName] = useState("");
+  // 회원/비회원 선택은 "추가할 대상"이자 "목록 필터"로 함께 쓰입니다.
   const [newType, setNewType] = useState<"member" | "guest">("member");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -84,11 +86,6 @@ export default function MembersPanel() {
     load();
   }
 
-  async function toggleActive(m: Member) {
-    await supabase.from("crew_members").update({ active: !m.active }).eq("id", m.id);
-    load();
-  }
-
   async function remove(m: Member) {
     if (!confirm(`${m.name} 님을 탈퇴 처리할까요?\n투표·회비·규정 동의 기록도 함께 지워지고 되돌릴 수 없어요.`))
       return;
@@ -121,13 +118,14 @@ export default function MembersPanel() {
   }
 
   const hasPassword = (id: string) => creds.some((c) => c.member_id === id);
-  const activeCount = members.filter((m) => m.active).length;
-  const guestCount = members.filter((m) => m.active && m.member_type === "guest").length;
+  const shown = members.filter((m) => m.member_type === newType);
+  const memberCount = members.filter((m) => m.member_type === "member").length;
+  const guestCount = members.filter((m) => m.member_type === "guest").length;
 
   return (
     <section>
       <p className="nr-more">
-        활동중 {activeCount}명 (비회원 {guestCount}명) · 전체 {members.length}명
+        회원 {memberCount}명 · 비회원 {guestCount}명
       </p>
 
       <form onSubmit={add} className="mt-2 flex flex-col gap-2">
@@ -156,20 +154,13 @@ export default function MembersPanel() {
       {error && <p className="mt-1.5 text-[12px]" style={{ color: "var(--red-deep)" }}>{error}</p>}
 
       <div className="mt-3 flex flex-col gap-1.5">
-        {members.map((m) => {
+        {shown.map((m) => {
           const editing = pwFor === m.id;
           const has = hasPassword(m.id);
           return (
             <div key={m.id} className="nr-card p-3">
               <div className="flex items-center gap-2">
-                <span
-                  className="flex-1 text-[14.5px] font-bold"
-                  style={
-                    m.active
-                      ? { color: "var(--ink)" }
-                      : { color: "var(--muted)", textDecoration: "line-through" }
-                  }
-                >
+                <span className="flex-1 text-[14.5px] font-bold" style={{ color: "var(--ink)" }}>
                   {m.name}
                 </span>
                 {roleLabel(m.role) && (
@@ -211,9 +202,6 @@ export default function MembersPanel() {
                 </button>
                 <button onClick={() => toggleType(m)} className="nr-btn-sm">
                   {m.member_type === "guest" ? "회원으로 전환" : "비회원으로 전환"}
-                </button>
-                <button onClick={() => toggleActive(m)} className="nr-btn-sm">
-                  {m.active ? "쉬는중으로" : "활동중으로"}
                 </button>
                 <button
                   onClick={() => remove(m)}
@@ -297,15 +285,19 @@ export default function MembersPanel() {
             </div>
           );
         })}
-        {members.length === 0 && <p className="nr-empty">아직 등록된 크루원이 없어요.</p>}
+        {shown.length === 0 && (
+          <p className="nr-empty">
+            {newType === "member" ? "등록된 회원이 없어요." : "등록된 비회원이 없어요."}
+          </p>
+        )}
       </div>
 
       <p className="mt-3 text-[11.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
         비밀번호는 저장하는 순간 암호화돼서, 나중에 다시 열어볼 수 없어요. 잊어버리면 새로 정해주면 됩니다.
         <br />
-        잠시 쉬는 크루원은 탈퇴 대신 &apos;쉬는중&apos;으로 바꿔주세요. 명단에서만 빠지고 기록은 남아요.
+        위의 회원 / 비회원 버튼으로 목록을 바꿔볼 수 있어요. 새로 추가할 때도 선택한 쪽으로 들어가요.
         <br />
-        탈퇴는 기록까지 함께 지워지고 되돌릴 수 없어요.
+        탈퇴는 투표·회비·규정 기록까지 함께 지워지고 되돌릴 수 없어요.
       </p>
     </section>
   );
