@@ -21,6 +21,16 @@ const ROLES: { key: string; label: string }[] = [
 function roleLabel(role: string | null) {
   return ROLES.find((r) => r.key === role)?.label ?? null;
 }
+
+/** 운영장 → 부운영장 → 서포터즈 → 일반 순으로, 같은 직책끼리는 이름순 */
+const ROLE_ORDER: Record<string, number> = { lead: 0, sub_lead: 1, supporter: 2 };
+
+export function byRoleThenName<T extends { role: string | null; name: string }>(a: T, b: T) {
+  const ra = a.role ? ROLE_ORDER[a.role] ?? 3 : 3;
+  const rb = b.role ? ROLE_ORDER[b.role] ?? 3 : 3;
+  if (ra !== rb) return ra - rb;
+  return a.name.localeCompare(b.name, "ko");
+}
 type CredRow = { member_id: string; updated_at: string };
 
 function randomPassword() {
@@ -118,7 +128,7 @@ export default function MembersPanel() {
   }
 
   const hasPassword = (id: string) => creds.some((c) => c.member_id === id);
-  const shown = members.filter((m) => m.member_type === newType);
+  const shown = members.filter((m) => m.member_type === newType).sort(byRoleThenName);
   const memberCount = members.filter((m) => m.member_type === "member").length;
   const guestCount = members.filter((m) => m.member_type === "guest").length;
 

@@ -9,7 +9,27 @@ const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN || "1214";
 const ME_KEY = "nround_me_v1";
 const ACCOUNT = { bank: "카카오뱅크", number: "3333315776031", label: "N.ROUND 모임통장" };
 
-type Member = { id: string; name: string; active: boolean; member_type: string };
+type Member = {
+  id: string;
+  name: string;
+  active: boolean;
+  member_type: string;
+  role: string | null;
+};
+
+const ROLE_ORDER: Record<string, number> = { lead: 0, sub_lead: 1, supporter: 2 };
+function roleLabel(role: string | null) {
+  if (role === "lead") return "운영장";
+  if (role === "sub_lead") return "부운영장";
+  if (role === "supporter") return "서포터즈";
+  return null;
+}
+function byRoleThenName(a: Member, b: Member) {
+  const ra = a.role ? ROLE_ORDER[a.role] ?? 3 : 3;
+  const rb = b.role ? ROLE_ORDER[b.role] ?? 3 : 3;
+  if (ra !== rb) return ra - rb;
+  return a.name.localeCompare(b.name, "ko");
+}
 type Period = {
   id: string;
   label: string;
@@ -135,7 +155,9 @@ export default function DuesPage() {
   const isGuest = (m: Member) => m.member_type === "guest";
 
   // 비회원 참여비를 안 받는 회차면 비회원은 회비 명단에서 아예 빠집니다.
-  const billed = members.filter((m) => !isGuest(m) || (period?.guest_dues_enabled ?? false));
+  const billed = members
+    .filter((m) => !isGuest(m) || (period?.guest_dues_enabled ?? false))
+    .sort(byRoleThenName);
 
   function amountFor(m: Member) {
     if (!period) return 0;
@@ -361,6 +383,12 @@ export default function DuesPage() {
                     </span>
                     <span className="flex flex-1 items-center gap-1.5">
                       <span className="text-[15px] font-bold" style={{ color: "var(--ink)" }}>{m.name}</span>
+                      {roleLabel(m.role) && (
+                        <span className="nr-badge nr-badge-red flex items-center gap-1">
+                          <Icon name="crown" size={11} />
+                          {roleLabel(m.role)}
+                        </span>
+                      )}
                       {guest && <span className="nr-badge nr-badge-tint">비회원</span>}
                     </span>
                     <span

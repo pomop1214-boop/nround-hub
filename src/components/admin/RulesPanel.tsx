@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Member = { id: string; name: string };
+type Member = { id: string; name: string; role: string | null };
+
+const ROLE_ORDER: Record<string, number> = { lead: 0, sub_lead: 1, supporter: 2 };
+function byRoleThenName(a: Member, b: Member) {
+  const ra = a.role ? ROLE_ORDER[a.role] ?? 3 : 3;
+  const rb = b.role ? ROLE_ORDER[b.role] ?? 3 : 3;
+  if (ra !== rb) return ra - rb;
+  return a.name.localeCompare(b.name, "ko");
+}
 type Category = { id: string; name: string; sort_order: number };
 type Rule = {
   id: string;
@@ -45,13 +53,13 @@ export default function RulesPanel() {
     setLoading(true);
     try {
       const [{ data: ms }, { data: cs }, { data: rs }, { data: as }, { data: ts }] = await Promise.all([
-        supabase.from("crew_members").select("id, name").eq("active", true).order("name"),
+        supabase.from("crew_members").select("id, name, role").eq("active", true).order("name"),
         supabase.from("rule_categories").select("*").order("sort_order").order("created_at"),
         supabase.from("rules").select("*").order("sort_order").order("created_at"),
         supabase.from("rule_acks").select("rule_id, member_id, version"),
         supabase.from("rule_targets").select("rule_id, member_id"),
       ]);
-      setMembers((ms ?? []) as Member[]);
+      setMembers(((ms ?? []) as Member[]).sort(byRoleThenName));
       setCategories((cs ?? []) as Category[]);
       setRules((rs ?? []) as Rule[]);
       setAcks((as ?? []) as Ack[]);
