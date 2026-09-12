@@ -75,7 +75,9 @@ create table if not exists votes (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   category text not null default '기타',   -- 월 참여 | 주 참여 | 기타
-  options jsonb not null default '[]',     -- 투표마다 직접 적는 보기 목록
+  options jsonb not null default '[]',     -- (예전 구조) 보기 목록
+  -- 질문 목록: [{id,label,type:'single'|'multi'|'text',options:[]}]
+  questions jsonb,
   deadline timestamptz,
   is_open boolean not null default true,
   created_at timestamptz not null default now()
@@ -85,7 +87,8 @@ create table if not exists vote_responses (
   id uuid primary key default gen_random_uuid(),
   vote_id uuid references votes (id) on delete cascade,
   member_id uuid references crew_members (id) on delete cascade,
-  choice text not null,
+  choice text,                             -- (예전 구조) 단일 선택
+  answers jsonb,                           -- { 질문id: 문자열 | 문자열배열 }
   created_at timestamptz not null default now(),
   unique (vote_id, member_id)
 );
