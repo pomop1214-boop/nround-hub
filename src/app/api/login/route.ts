@@ -9,9 +9,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "이름과 비밀번호를 입력해주세요." }, { status: 400 });
   }
 
+  // 크루원과 비밀번호를 한 번에 가져옵니다(왕복 2회 → 1회).
   const { data: member } = await supabaseAdmin
     .from("crew_members")
-    .select("id, name, active")
+    .select("id, name, active, member_credentials(password_hash)")
     .eq("name", name.trim())
     .maybeSingle();
 
@@ -20,11 +21,11 @@ export async function POST(req: NextRequest) {
 
   if (!member || !member.active) return fail;
 
-  const { data: cred } = await supabaseAdmin
-    .from("member_credentials")
-    .select("password_hash")
-    .eq("member_id", member.id)
-    .maybeSingle();
+  const credRow = member.member_credentials as unknown;
+  const cred = (Array.isArray(credRow) ? credRow[0] : credRow) as
+    | { password_hash: string }
+    | null
+    | undefined;
 
   if (!cred) {
     return NextResponse.json(
