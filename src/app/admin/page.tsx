@@ -12,13 +12,15 @@ import RulesPanel from "@/components/admin/RulesPanel";
 import EventsPanel from "@/components/admin/EventsPanel";
 import RequestsPanel from "@/components/admin/RequestsPanel";
 import VotesPanel from "@/components/admin/VotesPanel";
+import BuskingPanel from "@/components/admin/BuskingPanel";
 
-type Tab = "requests" | "notice" | "votes" | "events" | "members" | "dues" | "strikes" | "rules";
+type Tab = "requests" | "notice" | "votes" | "busking" | "events" | "members" | "dues" | "strikes" | "rules";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "requests", label: "요청" },
   { key: "notice", label: "공지 발송" },
   { key: "votes", label: "투표" },
+  { key: "busking", label: "버스킹" },
   { key: "events", label: "일정" },
   { key: "members", label: "크루원" },
   { key: "dues", label: "회비 회차" },
@@ -111,6 +113,7 @@ function AdminBody() {
         {tab === "requests" && <RequestsPanel />}
         {tab === "notice" && <NoticeForm />}
         {tab === "votes" && <VotesPanel />}
+        {tab === "busking" && <BuskingPanel />}
         {tab === "events" && <EventsPanel />}
         {tab === "members" && <MembersPanel />}
         {tab === "dues" && (

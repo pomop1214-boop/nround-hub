@@ -78,6 +78,27 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* 버스킹 */}
+      <section className="mt-6">
+        <h2 className="nr-h2">버스킹 곡신청</h2>
+        <Link href="/busking" className="nr-card mt-2.5 flex items-center gap-3 p-4">
+          <span className="nr-iconbox">
+            <Icon name="mic" size={19} />
+          </span>
+          <span className="flex-1">
+            <span className="block text-[14px] font-bold" style={{ color: "var(--ink)" }}>
+              곡 신청하기
+            </span>
+            <span className="mt-0.5 block text-[11.5px]" style={{ color: "var(--muted)" }}>
+              부를 곡과 MR을 올려주세요
+            </span>
+          </span>
+          <span style={{ color: "var(--muted)" }}>
+            <Icon name="chevron" size={16} />
+          </span>
+        </Link>
+      </section>
+
       {/* 진행 중인 투표 */}
       <section className="mt-6">
         <div className="flex items-center justify-between">
