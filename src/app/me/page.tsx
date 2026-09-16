@@ -177,7 +177,17 @@ export default function MyPage() {
       .from("settlement_items")
       .update({ claimed_at: stamp })
       .eq("id", it.id);
-    if (e) setError("전달하지 못했어요.");
+    if (e) {
+      setError("전달하지 못했어요.");
+      return;
+    }
+
+    // 정산을 올린 사람에게 알립니다.
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "settle_claimed", id: it.id }),
+    }).catch(() => {});
   }
 
   async function logout() {

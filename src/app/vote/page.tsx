@@ -86,6 +86,13 @@ export default function VotePage() {
     setEditing(null);
     setJustSent(voteId);
     setTimeout(() => setJustSent(null), 2500);
+
+    // 이 응답으로 전원 완료가 됐는지는 서버가 판단합니다.
+    fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "vote_check", id: voteId }),
+    }).catch(() => {});
   }
 
   function startEdit(v: VoteRow) {

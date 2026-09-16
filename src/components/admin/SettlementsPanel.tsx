@@ -84,6 +84,7 @@ export default function SettlementsPanel() {
         title: title.trim(),
         memo: memo.trim() || null,
         due_date: dueDate || null,
+        created_by: localStorage.getItem("nround_me_v1"),
       })
       .select("id")
       .single();
@@ -143,6 +144,15 @@ export default function SettlementsPanel() {
       .from("settlement_items")
       .update({ paid: next, paid_at: next ? new Date().toISOString() : null, claimed_at: null })
       .eq("id", sh.id);
+
+    // 확인 처리한 경우에만 알립니다.
+    if (next) {
+      fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "settle_confirmed", id: sh.id }),
+      }).catch(() => {});
+    }
   }
 
   async function remove(s: Settlement) {

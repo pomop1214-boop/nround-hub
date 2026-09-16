@@ -27,6 +27,7 @@ export default function RulesPage() {
   const [acks, setAcks] = useState<Ack[]>([]);
   const [meId, setMeId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -69,6 +70,12 @@ export default function RulesPage() {
   useEffect(() => {
     const stored = localStorage.getItem(ME_KEY);
     setMeId(stored);
+    // 운영진은 동의한 규정도 계속 볼 수 있습니다.
+    const r = localStorage.getItem("nround-admin-role");
+    setIsAdmin(
+      localStorage.getItem("nround-admin-unlocked") === "1" &&
+        (r === "lead" || r === "sub_lead" || r === "supporter")
+    );
     load(stored);
   }, [load]);
 
@@ -92,16 +99,25 @@ export default function RulesPage() {
 
   const todo = useMemo(() => rules.filter((r) => r.requires_ack && !hasAcked(r)), [rules, hasAcked]);
 
+  /** 동의를 마친 규정은 화면에서 감춥니다(운영진은 그대로 봅니다). */
+  const shown = useMemo(
+    () => (isAdmin ? rules : rules.filter((r) => !(r.requires_ack && hasAcked(r)))),
+    [rules, isAdmin, hasAcked]
+  );
+  const hiddenCount = rules.length - shown.length;
+
   const grouped = useMemo(() => {
     const out: { cat: Category | null; items: Rule[] }[] = [];
     categories.forEach((c) => {
-      const items = rules.filter((r) => r.category_id === c.id);
+      const items = shown.filter((r) => r.category_id === c.id);
       if (items.length) out.push({ cat: c, items });
     });
-    const orphan = rules.filter((r) => !r.category_id || !categories.some((c) => c.id === r.category_id));
+    const orphan = shown.filter(
+      (r) => !r.category_id || !categories.some((c) => c.id === r.category_id)
+    );
     if (orphan.length) out.push({ cat: null, items: orphan });
     return out;
-  }, [categories, rules]);
+  }, [categories, shown]);
 
   if (loading) {
     return (
@@ -121,6 +137,13 @@ export default function RulesPage() {
       <SubHeader title="크루 규정" />
 
       {error && <p className="text-[12px]" style={{ color: "var(--red-deep)" }}>{error}</p>}
+
+      {!isAdmin && hiddenCount > 0 && shown.length > 0 && (
+        <p className="mb-3 text-[11.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
+          동의를 마친 규정 {hiddenCount}개는 보안을 위해 감춰져 있어요.
+          다시 봐야 하면 운영자에게 말씀해주세요.
+        </p>
+      )}
 
       {meId && (
         <>
@@ -214,11 +237,21 @@ export default function RulesPage() {
               </section>
             ))}
 
-            {rules.length === 0 && (
+            {shown.length === 0 && (
               <div className="nr-empty">
-                아직 등록된 규정이 없어요.
-                <br />
-                관리자 화면에서 첫 규정을 만들어보세요.
+                {hiddenCount > 0 ? (
+                  <>
+                    확인해야 할 규정이 없어요.
+                    <br />
+                    동의한 규정은 보안을 위해 화면에서 감춰져요.
+                  </>
+                ) : (
+                  <>
+                    아직 등록된 규정이 없어요.
+                    <br />
+                    관리자 화면에서 첫 규정을 만들어보세요.
+                  </>
+                )}
               </div>
             )}
           </div>
