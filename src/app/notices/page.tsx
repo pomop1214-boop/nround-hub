@@ -58,8 +58,17 @@ export default function NoticesPage() {
 
   async function remove(n: Notice) {
     if (!confirm(`"${n.title}" 공지를 삭제할까요?\n되돌릴 수 없어요.`)) return;
-    const { error: e } = await supabase.from("announcements").delete().eq("id", n.id);
-    if (e) return setError("삭제하지 못했어요.");
+    const pin = localStorage.getItem("nround-admin-pin") ?? "";
+    const res = await fetch("/api/notice", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin, id: n.id }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "삭제하지 못했어요.");
+      return;
+    }
     setError("");
     load();
   }

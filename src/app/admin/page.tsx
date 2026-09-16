@@ -56,7 +56,18 @@ function NoticeForm() {
 
   async function removeNotice(n: SentNotice) {
     if (!confirm(`"${n.title}" 공지를 삭제할까요?\n되돌릴 수 없어요.`)) return;
-    await supabase.from("announcements").delete().eq("id", n.id);
+    const pin = window.localStorage.getItem("nround-admin-pin") ?? "";
+    const res = await fetch("/api/notice", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin, id: n.id }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "삭제하지 못했어요.");
+      return;
+    }
+    setError("");
     loadSent();
   }
 
