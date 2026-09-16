@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { checkAdmin } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -7,8 +8,9 @@ export const dynamic = "force-dynamic";
 export async function DELETE(req: NextRequest) {
   const { pin, id } = await req.json();
 
-  if (pin !== process.env.ADMIN_PIN) {
-    return NextResponse.json({ error: "운영자만 지울 수 있어요." }, { status: 401 });
+  const auth = await checkAdmin(req, pin, ["lead", "sub_lead"]);
+  if (!auth.ok) {
+    return NextResponse.json({ error: "공지를 지울 권한이 없어요." }, { status: 401 });
   }
   if (!id) return NextResponse.json({ error: "잘못된 요청이에요." }, { status: 400 });
 

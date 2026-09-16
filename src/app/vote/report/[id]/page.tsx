@@ -50,7 +50,10 @@ export default function VoteReportPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     // 집계는 운영자만 볼 수 있게 합니다.
-    setAllowed(localStorage.getItem("nround-admin-unlocked") === "1");
+    setAllowed(
+      localStorage.getItem("nround-admin-unlocked") === "1" &&
+        localStorage.getItem("nround-admin-role") === "lead"
+    );
     load();
   }, [load]);
 

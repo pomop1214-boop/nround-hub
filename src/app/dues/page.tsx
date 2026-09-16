@@ -94,7 +94,12 @@ export default function DuesPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   // 관리자 화면에서 한 번 확인했으면 여기서도 바로 열어줍니다.
   useEffect(() => {
-    if (localStorage.getItem("nround-admin-unlocked") === "1") setIsAdmin(true);
+    // 회비 명단은 운영장만 볼 수 있습니다.
+    if (
+      localStorage.getItem("nround-admin-unlocked") === "1" &&
+      localStorage.getItem("nround-admin-role") === "lead"
+    )
+      setIsAdmin(true);
   }, []);
   const [pinOpen, setPinOpen] = useState(false);
   const [pin, setPin] = useState("");
@@ -148,6 +153,7 @@ export default function DuesPage() {
       setPin("");
       setPinError("");
       localStorage.setItem("nround-admin-unlocked", "1");
+      localStorage.setItem("nround-admin-role", "lead");
       localStorage.setItem("nround-admin-pin", pin);
     } else setPinError("PIN이 맞지 않아요.");
   }

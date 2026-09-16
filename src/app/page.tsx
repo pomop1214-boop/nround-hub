@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import AppHeader from "@/components/AppHeader";
 import Hero from "@/components/Hero";
 import PushSubscribeButton from "@/components/PushSubscribeButton";
+import InstallButton from "@/components/InstallButton";
 import LogoutButton from "@/components/LogoutButton";
 import Icon from "@/components/Icon";
 import EventList, { type EventRow } from "@/components/EventList";
@@ -70,8 +71,9 @@ export default async function HomePage() {
 
       <Hero />
 
-      <div className="mt-4">
+      <div className="mt-4 flex flex-col gap-2">
         <PushSubscribeButton />
+        <InstallButton />
       </div>
 
       {/* 다가오는 일정 */}

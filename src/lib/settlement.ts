@@ -20,11 +20,3 @@ export type SettlementItem = {
 export function won(n: number) {
   return n.toLocaleString("ko-KR") + "원";
 }
-
-/** 총액을 인원수로 나눕니다. 나머지는 앞사람부터 1원씩 더 냅니다. */
-export function splitEvenly(total: number, count: number): number[] {
-  if (count <= 0) return [];
-  const base = Math.floor(total / count);
-  const rest = total - base * count;
-  return Array.from({ length: count }, (_, i) => base + (i < rest ? 1 : 0));
-}

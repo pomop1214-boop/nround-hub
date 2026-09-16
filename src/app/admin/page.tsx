@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import AdminGate from "@/components/AdminGate";
+import AdminGate, { type AdminRole } from "@/components/AdminGate";
 import Icon from "@/components/Icon";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -18,17 +18,17 @@ import SettlementsPanel from "@/components/admin/SettlementsPanel";
 
 type Tab = "requests" | "notice" | "votes" | "busking" | "events" | "members" | "dues" | "settle" | "strikes" | "rules";
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "requests", label: "요청" },
-  { key: "notice", label: "공지 발송" },
-  { key: "votes", label: "투표" },
-  { key: "busking", label: "버스킹" },
-  { key: "events", label: "일정" },
-  { key: "members", label: "크루원" },
-  { key: "dues", label: "회비 회차" },
-  { key: "settle", label: "정산" },
-  { key: "strikes", label: "미확인" },
-  { key: "rules", label: "규정" },
+const TABS: { key: Tab; label: string; roles: AdminRole[] }[] = [
+  { key: "requests", label: "요청", roles: ["lead"] },
+  { key: "notice", label: "공지 발송", roles: ["lead", "sub_lead"] },
+  { key: "votes", label: "투표", roles: ["lead"] },
+  { key: "busking", label: "버스킹", roles: ["lead"] },
+  { key: "events", label: "일정", roles: ["lead"] },
+  { key: "members", label: "크루원", roles: ["lead"] },
+  { key: "dues", label: "회비 회차", roles: ["lead"] },
+  { key: "settle", label: "정산", roles: ["lead", "sub_lead", "supporter"] },
+  { key: "strikes", label: "미확인", roles: ["lead"] },
+  { key: "rules", label: "규정", roles: ["lead"] },
 ];
 
 type SentNotice = { id: string; title: string; created_at: string };
@@ -157,13 +157,20 @@ function NoticeForm() {
   );
 }
 
-function AdminBody() {
-  const [tab, setTab] = useState<Tab>("requests");
+function AdminBody({ role }: { role: AdminRole }) {
+  const allowed = TABS.filter((t) => t.roles.includes(role));
+  const [tab, setTab] = useState<Tab>(allowed[0]?.key ?? "settle");
 
   return (
     <>
+      {role !== "lead" && (
+        <p className="mt-3 text-[11.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
+          {role === "sub_lead" ? "부운영장" : "서포터즈"} 권한으로 들어왔어요. 맡은 기능만 보여요.
+        </p>
+      )}
+
       <div className="mt-4 flex flex-wrap gap-1.5">
-        {TABS.map((t) => (
+        {allowed.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -214,9 +221,7 @@ export default function AdminPage() {
   return (
     <main className="nr-page">
       <SubHeader title="관리자" />
-      <AdminGate>
-        <AdminBody />
-      </AdminGate>
+      <AdminGate>{(role) => <AdminBody role={role} />}</AdminGate>
     </main>
   );
 }

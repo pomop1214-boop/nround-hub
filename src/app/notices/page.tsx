@@ -43,7 +43,11 @@ export default function NoticesPage() {
   }, []);
 
   useEffect(() => {
-    setIsAdmin(localStorage.getItem("nround-admin-unlocked") === "1");
+    // 공지 삭제는 운영장·부운영장만
+    const r = localStorage.getItem("nround-admin-role");
+    setIsAdmin(
+      localStorage.getItem("nround-admin-unlocked") === "1" && (r === "lead" || r === "sub_lead")
+    );
     load();
     // 공지함을 열었으니 읽음으로 처리합니다(기기가 바뀌어도 유지되게 서버에 기록).
     const meId = localStorage.getItem(ME_KEY);

@@ -151,6 +151,26 @@ export default function VotesPanel() {
       : await supabase.from("votes").insert({ ...payload, is_open: true });
 
     if (e2) return setError("저장하지 못했어요.");
+
+    // 새 투표는 활동중인 크루원 모두에게 알립니다.
+    if (!draft.id) {
+      try {
+        const pin = localStorage.getItem("nround-admin-pin") ?? "";
+        await fetch("/api/push", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pin,
+            title: `새 투표 · ${payload.title}`,
+            body: payload.deadline ? `${fmtDeadline(payload.deadline)}까지 응답해주세요` : "응답해주세요",
+            url: "/vote",
+            memberIds: members.map((m) => m.id),
+          }),
+        });
+      } catch {
+        /* 알림 실패해도 투표는 만들어졌습니다 */
+      }
+    }
     setError("");
     setDraft(null);
     load();

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/Icon";
-import { splitEvenly, won, type Settlement, type SettlementItem } from "@/lib/settlement";
+import { won, type Settlement, type SettlementItem } from "@/lib/settlement";
 
 type Member = { id: string; name: string; role: string | null };
 
@@ -28,8 +28,9 @@ export default function SettlementsPanel() {
   const [title, setTitle] = useState("");
   const [memo, setMemo] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [total, setTotal] = useState("");
-  const [picked, setPicked] = useState<string[]>([]);
+  /** 사람별 금액. 비어 있거나 0이면 이번 정산에서 빠집니다. */
+  const [amountByMember, setAmountByMember] = useState<Record<string, string>>({});
+  const [sameAmount, setSameAmount] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -54,14 +55,27 @@ export default function SettlementsPanel() {
     load();
   }, [load]);
 
-  const amounts = splitEvenly(parseInt(total.replace(/[^0-9]/g, ""), 10) || 0, picked.length);
+  const parsed = (v: string | undefined) => parseInt((v ?? "").replace(/[^0-9]/g, ""), 10) || 0;
+  /** 금액이 입력된 사람만 대상이 됩니다. */
+  const targets = members
+    .map((m) => ({ m, amount: parsed(amountByMember[m.id]) }))
+    .filter((x) => x.amount > 0);
+  const sumAll = targets.reduce((n, x) => n + x.amount, 0);
+
+  function applySame() {
+    const v = parsed(sameAmount);
+    if (v <= 0) return;
+    const next: Record<string, string> = {};
+    members.forEach((m) => {
+      next[m.id] = String(v);
+    });
+    setAmountByMember(next);
+  }
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return setError("정산 이름을 입력해주세요.");
-    if (picked.length === 0) return setError("나눠 낼 사람을 골라주세요.");
-    const amt = parseInt(total.replace(/[^0-9]/g, ""), 10) || 0;
-    if (amt <= 0) return setError("총 금액을 입력해주세요.");
+    if (targets.length === 0) return setError("한 명 이상에게 금액을 입력해주세요.");
 
     setBusy(true);
     const { data, error: e2 } = await supabase
@@ -79,26 +93,27 @@ export default function SettlementsPanel() {
       return setError("만들지 못했어요.");
     }
 
-    const rows = picked.map((id, i) => ({
+    const rows = targets.map((x) => ({
       settlement_id: data.id,
-      member_id: id,
-      amount: amounts[i],
+      member_id: x.m.id,
+      amount: x.amount,
     }));
     const { error: e3 } = await supabase.from("settlement_items").insert(rows);
     setBusy(false);
-    if (e3) return setError("금액을 나누지 못했어요.");
+    if (e3) return setError("금액을 저장하지 못했어요.");
 
     // 대상자에게 알림을 보냅니다.
     try {
       const pin = localStorage.getItem("nround-admin-pin") ?? "";
-      await fetch("/api/send-notification", {
+      await fetch("/api/push", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pin,
           title: `정산 요청 · ${title.trim()}`,
-          body: `${won(Math.round(amt / picked.length))} 내외 · 마이에서 확인해주세요`,
+          body: "마이에서 금액을 확인해주세요",
           url: "/me",
+          memberIds: targets.map((x) => x.m.id),
         }),
       });
     } catch {
@@ -109,8 +124,8 @@ export default function SettlementsPanel() {
     setTitle("");
     setMemo("");
     setDueDate("");
-    setTotal("");
-    setPicked([]);
+    setAmountByMember({});
+    setSameAmount("");
     setError("");
     load();
   }
@@ -179,54 +194,66 @@ export default function SettlementsPanel() {
             className="nr-input"
             style={{ fontSize: 14 }}
           />
-          <div className="flex gap-2">
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="nr-input"
+          />
+
+          <div className="mt-1 flex items-center gap-2">
+            <p className="nr-h2 flex-1">사람별 금액</p>
             <input
-              value={total}
-              onChange={(e) => setTotal(e.target.value)}
+              value={sameAmount}
+              onChange={(e) => setSameAmount(e.target.value)}
               inputMode="numeric"
-              placeholder="총 금액"
-              className="nr-input flex-1"
+              placeholder="모두 같은 금액"
+              className="nr-input"
+              style={{ width: 120, padding: "7px 10px", fontSize: 13 }}
             />
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="nr-input flex-1"
-            />
+            <button type="button" onClick={applySame} className="nr-btn-sm">
+              채우기
+            </button>
           </div>
 
-          <p className="nr-h2 mt-1">나눠 낼 사람</p>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPicked(picked.length === members.length ? [] : members.map((m) => m.id))}
-              className="nr-btn-sm"
-            >
-              {picked.length === members.length ? "전체 해제" : "전체 선택"}
-            </button>
+          <div className="flex flex-col gap-1.5">
             {members.map((m) => {
-              const on = picked.includes(m.id);
+              const v = amountByMember[m.id] ?? "";
+              const on = parsed(v) > 0;
               return (
-                <button
+                <div
                   key={m.id}
-                  type="button"
-                  onClick={() =>
-                    setPicked(on ? picked.filter((id) => id !== m.id) : [...picked, m.id])
+                  className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  style={
+                    on
+                      ? { background: "var(--red-wash)", border: "1px solid var(--red-tint)" }
+                      : { border: "1px solid var(--border)" }
                   }
-                  className={"nr-btn-sm " + (on ? "nr-btn-sm-solid" : "")}
                 >
-                  {m.name}
-                </button>
+                  <span className="flex-1 text-[13.5px] font-bold" style={{ color: "var(--ink)" }}>
+                    {m.name}
+                  </span>
+                  <input
+                    value={v}
+                    onChange={(e) => setAmountByMember({ ...amountByMember, [m.id]: e.target.value })}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="nr-input"
+                    style={{ width: 110, padding: "7px 10px", fontSize: 13, textAlign: "right" }}
+                  />
+                  <span className="text-[12px]" style={{ color: "var(--muted)" }}>
+                    원
+                  </span>
+                </div>
               );
             })}
           </div>
 
-          {picked.length > 0 && amounts[0] > 0 && (
-            <p className="text-[11.5px]" style={{ color: "var(--muted)" }}>
-              {picked.length}명이 나눠서 1인 {won(amounts[0])}
-              {amounts[0] !== amounts[amounts.length - 1] && ` (일부 ${won(amounts[amounts.length - 1])})`}
-            </p>
-          )}
+          <p className="text-[11.5px]" style={{ color: "var(--muted)" }}>
+            {targets.length > 0
+              ? `${targets.length}명 · 합계 ${won(sumAll)}`
+              : "금액을 입력한 사람에게만 정산 요청이 가요."}
+          </p>
 
           <div className="mt-1 flex gap-2">
             <button
