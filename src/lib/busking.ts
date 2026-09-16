@@ -7,11 +7,13 @@ export type Song = {
   partner: string;
   instUrl: string | null;
   instName: string;
+  /** 운영자가 무대에 올리기로 정한 곡 — 이 곡만 MR을 올립니다. */
   confirmed: boolean;
 };
 
 export type Submission = {
   id: string;
+  round_id: string;
   created_at: string;
   name: string;
   member_id: string | null;
@@ -21,10 +23,14 @@ export type Submission = {
   admin_memo: string | null;
 };
 
-export type BuskingConfig = {
-  id: number;
+export type Round = {
+  id: string;
+  title: string;
+  event_date: string | null;
   deadline: string | null;
   notice: string | null;
+  is_open: boolean;
+  created_at: string;
 };
 
 export const MIN_SONGS = 2;
@@ -50,9 +56,11 @@ export function levelFromViews(views: number): "상" | "중" | "하" {
   return "하";
 }
 
-export function isClosed(cfg: BuskingConfig | null) {
-  if (!cfg?.deadline) return false;
-  return new Date(cfg.deadline).getTime() <= Date.now();
+export function isClosed(r: Round | null) {
+  if (!r) return true;
+  if (!r.is_open) return true;
+  if (!r.deadline) return false;
+  return new Date(r.deadline).getTime() <= Date.now();
 }
 
 export function fmtDeadline(iso: string) {
@@ -64,11 +72,21 @@ export function fmtDeadline(iso: string) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${wd}) ${ap} ${h}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-/** 제출 가능한 상태인지 — 곡마다 제목과 MR이 있어야 합니다. */
+/** 신청 단계에서는 제목만 있으면 됩니다. MR은 선곡된 뒤에 올립니다. */
 export function songReady(s: Song) {
-  return s.title.trim().length > 0 && !!s.instUrl;
+  return s.title.trim().length > 0;
 }
 
 export function canSubmit(songs: Song[]) {
   return songs.length >= MIN_SONGS && songs.every(songReady);
+}
+
+/** 선곡된 곡들 */
+export function confirmedSongs(s: Submission | null) {
+  return (s?.songs ?? []).filter((g) => g.confirmed);
+}
+
+/** MR을 아직 안 올린 선곡 곡이 있는지 */
+export function needsInst(s: Submission | null) {
+  return confirmedSongs(s).some((g) => !g.instUrl);
 }

@@ -43,6 +43,15 @@ export default async function HomePage() {
       .limit(2),
   ]);
 
+  // 버스킹은 진행 중인 회차가 있을 때만 홈에 띄웁니다.
+  const { data: buskingRound } = await supabase
+    .from("busking_rounds")
+    .select("id, title, event_date, deadline")
+    .eq("is_open", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const upcoming = (events ?? []) as EventRow[];
 
   const notices = announcements ?? [];
@@ -78,26 +87,30 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* 버스킹 */}
-      <section className="mt-6">
-        <h2 className="nr-h2">버스킹 곡신청</h2>
-        <Link href="/busking" className="nr-card mt-2.5 flex items-center gap-3 p-4">
-          <span className="nr-iconbox">
-            <Icon name="mic" size={19} />
-          </span>
-          <span className="flex-1">
-            <span className="block text-[14px] font-bold" style={{ color: "var(--ink)" }}>
-              곡 신청하기
+      {/* 버스킹 — 진행 중일 때만 */}
+      {buskingRound && (
+        <section className="mt-6">
+          <h2 className="nr-h2">버스킹 곡신청</h2>
+          <Link href="/busking" className="nr-card nr-card-tint mt-2.5 flex items-center gap-3 p-4">
+            <span className="nr-iconbox">
+              <Icon name="mic" size={19} />
             </span>
-            <span className="mt-0.5 block text-[11.5px]" style={{ color: "var(--muted)" }}>
-              부를 곡과 MR을 올려주세요
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14px] font-bold" style={{ color: "var(--ink)" }}>
+                {buskingRound.title}
+              </span>
+              <span className="mt-0.5 block text-[11.5px]" style={{ color: "var(--muted)" }}>
+                {buskingRound.deadline
+                  ? `${daysLeft(buskingRound.deadline)} · 신청받는 중`
+                  : "신청받는 중"}
+              </span>
             </span>
-          </span>
-          <span style={{ color: "var(--muted)" }}>
-            <Icon name="chevron" size={16} />
-          </span>
-        </Link>
-      </section>
+            <span style={{ color: "var(--muted)" }}>
+              <Icon name="chevron" size={16} />
+            </span>
+          </Link>
+        </section>
+      )}
 
       {/* 진행 중인 투표 */}
       <section className="mt-6">
