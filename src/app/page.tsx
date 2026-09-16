@@ -149,7 +149,7 @@ export default async function HomePage() {
       <section className="mt-6">
         <div className="flex items-center justify-between">
           <h2 className="nr-h2">최근 공지</h2>
-          <span className="nr-more">전체보기 ›</span>
+          <Link href="/notices" className="nr-more">전체보기 ›</Link>
         </div>
 
         <div className="mt-2 flex flex-col">

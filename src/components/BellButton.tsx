@@ -7,7 +7,6 @@ import Icon from "./Icon";
 import { answersOf, isComplete, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
 
 const ME_KEY = "nround_me_v1";
-const SEEN_KEY = "nround_notice_seen_at";
 
 /** 홈 상단 종 — 확인하지 않은 것이 있으면 빨간 점이 붙습니다. */
 export default function BellButton() {
@@ -18,7 +17,12 @@ export default function BellButton() {
     if (!meId) return;
 
     try {
-      const seenAt = localStorage.getItem(SEEN_KEY) ?? "1970-01-01";
+      const { data: me } = await supabase
+        .from("crew_members")
+        .select("notices_seen_at")
+        .eq("id", meId)
+        .maybeSingle();
+      const seenAt = me?.notices_seen_at ?? "1970-01-01";
       let n = 0;
 
       // 안 읽은 공지

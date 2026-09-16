@@ -275,3 +275,7 @@ alter table member_requests enable row level security;
 -- 알림을 어느 크루원의 기기인지 알 수 있게 연결합니다(운영장에게만 보내기 위함).
 alter table push_subscriptions
   add column if not exists member_id uuid references crew_members (id) on delete set null;
+
+-- 공지를 어디까지 읽었는지 (기기가 바뀌어도 유지되도록 서버에 둡니다)
+alter table crew_members
+  add column if not exists notices_seen_at timestamptz;

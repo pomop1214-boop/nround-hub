@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AdminGate from "@/components/AdminGate";
 import Icon from "@/components/Icon";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 import { SubHeader } from "@/components/AppHeader";
 import MembersPanel from "@/components/admin/MembersPanel";
 import DuesPeriodsPanel from "@/components/admin/DuesPeriodsPanel";
@@ -30,12 +31,34 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "rules", label: "규정" },
 ];
 
+type SentNotice = { id: string; title: string; created_at: string };
+
 function NoticeForm() {
+  const [sent, setSent] = useState<SentNotice[]>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [error, setError] = useState("");
+
+  const loadSent = useCallback(async () => {
+    const { data } = await supabase
+      .from("announcements")
+      .select("id, title, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setSent((data ?? []) as SentNotice[]);
+  }, []);
+
+  useEffect(() => {
+    loadSent();
+  }, [loadSent]);
+
+  async function removeNotice(n: SentNotice) {
+    if (!confirm(`"${n.title}" 공지를 삭제할까요?\n되돌릴 수 없어요.`)) return;
+    await supabase.from("announcements").delete().eq("id", n.id);
+    loadSent();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,6 +76,7 @@ function NoticeForm() {
       setTitle("");
       setBody("");
       setUrl("");
+      loadSent();
     }
   }
 
@@ -90,6 +114,34 @@ function NoticeForm() {
       <p className="text-[11.5px] leading-relaxed" style={{ color: "var(--muted)" }}>
         알림을 구독한 크루원에게 푸시가 가고, 홈 화면 공지 목록에도 함께 올라가요.
       </p>
+
+      {sent.length > 0 && (
+        <>
+          <p className="nr-h2 mt-3">보낸 공지</p>
+          <div className="flex flex-col gap-1.5">
+            {sent.map((n) => (
+              <div key={n.id} className="nr-card flex items-center gap-2 p-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px] font-bold" style={{ color: "var(--ink)" }}>
+                    {n.title}
+                  </span>
+                  <span className="mt-0.5 block text-[11px]" style={{ color: "var(--muted)" }}>
+                    {n.created_at.slice(0, 10)}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeNotice(n)}
+                  className="nr-btn-sm"
+                  style={{ borderColor: "transparent", background: "transparent" }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </form>
   );
 }
