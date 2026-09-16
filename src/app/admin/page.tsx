@@ -13,8 +13,9 @@ import EventsPanel from "@/components/admin/EventsPanel";
 import RequestsPanel from "@/components/admin/RequestsPanel";
 import VotesPanel from "@/components/admin/VotesPanel";
 import BuskingPanel from "@/components/admin/BuskingPanel";
+import SettlementsPanel from "@/components/admin/SettlementsPanel";
 
-type Tab = "requests" | "notice" | "votes" | "busking" | "events" | "members" | "dues" | "strikes" | "rules";
+type Tab = "requests" | "notice" | "votes" | "busking" | "events" | "members" | "dues" | "settle" | "strikes" | "rules";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "requests", label: "요청" },
@@ -24,6 +25,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "events", label: "일정" },
   { key: "members", label: "크루원" },
   { key: "dues", label: "회비 회차" },
+  { key: "settle", label: "정산" },
   { key: "strikes", label: "미확인" },
   { key: "rules", label: "규정" },
 ];
@@ -137,6 +139,7 @@ function AdminBody() {
             <DuesPeriodsPanel />
           </>
         )}
+        {tab === "settle" && <SettlementsPanel />}
         {tab === "strikes" && <StrikesPanel />}
         {tab === "rules" && <RulesPanel />}
       </div>

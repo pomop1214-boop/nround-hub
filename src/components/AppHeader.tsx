@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Icon from "./Icon";
+import BellButton from "./BellButton";
 
 /** 시안의 상단 바 — 워드마크 + 알림 */
 export default function AppHeader({ name }: { name?: string }) {
@@ -11,9 +12,9 @@ export default function AppHeader({ name }: { name?: string }) {
         </span>
       </Link>
       <div className="flex items-center gap-2.5">
-        <span style={{ color: "var(--body)" }}>
+        <Link href="/alerts" style={{ color: "var(--body)" }} aria-label="알림">
           <Icon name="bell" size={20} />
-        </span>
+        </Link>
         <Link
           href="/me"
           className="grid h-9 w-9 place-items-center rounded-full text-[13px] font-bold"

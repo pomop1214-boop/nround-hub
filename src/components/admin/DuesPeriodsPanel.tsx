@@ -32,12 +32,27 @@ export default function DuesPeriodsPanel() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [stats, setStats] = useState<Record<string, { paid: number; total: number }>>({});
+
   const load = useCallback(async () => {
-    const { data } = await supabase
-      .from("dues_periods")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setPeriods((data ?? []) as Period[]);
+    const [{ data }, { data: members }, { data: pays }] = await Promise.all([
+      supabase.from("dues_periods").select("*").order("created_at", { ascending: false }),
+      supabase.from("crew_members").select("id, member_type").eq("active", true),
+      supabase.from("dues_payments").select("period_id, member_id, paid"),
+    ]);
+    const list = (data ?? []) as Period[];
+    setPeriods(list);
+
+    // 회차마다 몇 명이 냈는지 — 삭제해도 되는지 판단할 때 씁니다.
+    const map: Record<string, { paid: number; total: number }> = {};
+    list.forEach((p) => {
+      const billed = (members ?? []).filter(
+        (m) => m.member_type !== "guest" || p.guest_dues_enabled
+      );
+      const paid = (pays ?? []).filter((x) => x.period_id === p.id && x.paid).length;
+      map[p.id] = { paid, total: billed.length };
+    });
+    setStats(map);
   }, []);
 
   useEffect(() => {
@@ -79,6 +94,33 @@ export default function DuesPeriodsPanel() {
   async function updateGuestAmount(p: Period, value: string) {
     const amt = parseInt(value.replace(/[^0-9]/g, ""), 10) || 0;
     await supabase.from("dues_periods").update({ guest_amount: amt }).eq("id", p.id);
+    load();
+  }
+
+  async function removePeriod(p: Period) {
+    if (
+      !confirm(
+        `"${p.label}" 회차를 삭제할까요?\n이 회차의 납부 기록도 함께 지워지고 되돌릴 수 없어요.`
+      )
+    )
+      return;
+    const { error: e } = await supabase.from("dues_periods").delete().eq("id", p.id);
+    if (e) return setError("삭제하지 못했어요.");
+    setError("");
+    load();
+  }
+
+  async function remove(p: Period) {
+    const st = stats[p.id];
+    const allPaid = st && st.total > 0 && st.paid >= st.total;
+    const warn = allPaid
+      ? `"${p.label}" 회차를 삭제할까요?\n납부 기록도 함께 지워지고 되돌릴 수 없어요.`
+      : `아직 ${st ? st.total - st.paid : "?"}명이 납부하지 않았어요.\n그래도 "${p.label}" 회차를 삭제할까요?\n납부 기록도 함께 지워지고 되돌릴 수 없어요.`;
+    if (!confirm(warn)) return;
+
+    const { error: e } = await supabase.from("dues_periods").delete().eq("id", p.id);
+    if (e) return setError("삭제하지 못했어요.");
+    setError("");
     load();
   }
 
@@ -168,10 +210,39 @@ export default function DuesPeriodsPanel() {
               ) : (
                 <button onClick={() => makeCurrent(p.id)} className="nr-btn-sm">이걸로 바꾸기</button>
               )}
+              <button
+                onClick={() => removePeriod(p)}
+                className="nr-btn-sm"
+                style={{ borderColor: "transparent", background: "transparent" }}
+              >
+                삭제
+              </button>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {stats[p.id] && (
+                <span
+                  className="nr-badge"
+                  style={
+                    stats[p.id].paid >= stats[p.id].total
+                      ? { background: "var(--mint)", color: "#1F6B73" }
+                      : { background: "var(--red-tint)", color: "var(--red-deep)" }
+                  }
+                >
+                  {stats[p.id].paid}/{stats[p.id].total}명 납부
+                </span>
+              )}
+              <button
+                onClick={() => remove(p)}
+                className="nr-btn-sm ml-auto"
+                style={{ borderColor: "transparent", background: "transparent" }}
+              >
+                회차 삭제
+              </button>
             </div>
 
             {p.is_current && (
-              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <button
                   onClick={() => setGuest(p, !p.guest_dues_enabled)}
                   className={"nr-btn-sm " + (p.guest_dues_enabled ? "nr-btn-sm-solid" : "")}

@@ -6,6 +6,7 @@ import { SubHeader } from "@/components/AppHeader";
 import Icon from "@/components/Icon";
 import {
   answersOf,
+  isAnswered,
   fmtDeadline,
   isComplete,
   questionsOf,
@@ -23,7 +24,11 @@ export default function VotePage() {
   const [meId, setMeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  /** 수정 중인 투표 id. 여기 있으면 입력 화면, 없으면 완료 화면. */
+  const [editing, setEditing] = useState<string | null>(null);
+  /** 제출 전 임시 답안 */
+  const [draft, setDraft] = useState<Record<string, Answers>>({});
+  const [justSent, setJustSent] = useState<string | null>(null);
 
   const load = useCallback(async (memberId: string | null) => {
     setLoading(true);
@@ -64,25 +69,30 @@ export default function VotePage() {
     load(stored);
   }, [load]);
 
-  async function save(voteId: string, next: Answers) {
+  async function submit(voteId: string) {
     if (!meId) return;
-    const prev = mine;
-    setMine({ ...mine, [voteId]: next });
+    const next = draft[voteId] ?? {};
     const { error: e } = await supabase.from("vote_responses").upsert(
       { vote_id: voteId, member_id: meId, answers: next },
       { onConflict: "vote_id,member_id" }
     );
     if (e) {
-      setMine(prev);
-      setError("저장하지 못했어요.");
+      setError("제출하지 못했어요.");
       return;
     }
-    setSavedAt(voteId);
-    setTimeout(() => setSavedAt(null), 1500);
+    setMine({ ...mine, [voteId]: next });
+    setEditing(null);
+    setJustSent(voteId);
+    setTimeout(() => setJustSent(null), 2500);
+  }
+
+  function startEdit(v: VoteRow) {
+    setDraft({ ...draft, [v.id]: mine[v.id] ?? {} });
+    setEditing(v.id);
   }
 
   function toggle(vote: VoteRow, q: Question, option: string) {
-    const cur = mine[vote.id] ?? {};
+    const cur = draft[vote.id] ?? {};
     let next: Answers;
     if (q.type === "multi") {
       const arr = Array.isArray(cur[q.id]) ? (cur[q.id] as string[]) : [];
@@ -93,12 +103,23 @@ export default function VotePage() {
     } else {
       next = { ...cur, [q.id]: cur[q.id] === option ? undefined : option };
     }
-    save(vote.id, next);
+    setDraft({ ...draft, [vote.id]: next });
   }
 
   function setText(vote: VoteRow, q: Question, value: string) {
-    const cur = mine[vote.id] ?? {};
-    setMine({ ...mine, [vote.id]: { ...cur, [q.id]: value } });
+    const cur = draft[vote.id] ?? {};
+    setDraft({ ...draft, [vote.id]: { ...cur, [q.id]: value } });
+  }
+
+  /** 내가 고른 답을 사람이 읽기 좋게 */
+  function summaryOf(v: VoteRow) {
+    const a = mine[v.id] ?? {};
+    return questionsOf(v)
+      .filter((q) => isAnswered(a, q))
+      .map((q) => {
+        const val = a[q.id];
+        return { label: q.label, text: Array.isArray(val) ? val.join(", ") : String(val ?? "") };
+      });
   }
 
   if (loading) {
@@ -130,8 +151,12 @@ export default function VotePage() {
 
         {votes.map((v) => {
           const qs = questionsOf(v);
-          const a = mine[v.id] ?? {};
-          const done = isComplete(a, qs);
+          const saved = mine[v.id] ?? {};
+          const done = isComplete(saved, qs);
+          const isEditing = editing === v.id || !done;
+          const a = isEditing ? draft[v.id] ?? saved : saved;
+          const ready = isComplete(a, qs);
+
           return (
             <div key={v.id} className="nr-card p-4">
               <div className="flex items-center gap-2">
@@ -152,80 +177,140 @@ export default function VotePage() {
                 {v.title}
               </p>
 
-              {qs.map((q) => (
-                <div key={q.id} className="mt-5">
-                  <p className="text-[12.5px] font-bold" style={{ color: "var(--ink)" }}>
-                    {q.label}
-                    {q.type === "multi" && (
-                      <span className="ml-1 font-normal" style={{ color: "var(--muted)" }}>
-                        · 여러 개 선택 가능
-                      </span>
-                    )}
-                  </p>
+              {/* ── 제출 완료 ── */}
+              {!isEditing ? (
+                <>
+                  <div
+                    className="mt-3 rounded-xl p-3.5"
+                    style={{ background: "var(--mint-bg)", border: "1px solid var(--mint)" }}
+                  >
+                    <p
+                      className="flex items-center gap-1.5 text-[13.5px] font-bold"
+                      style={{ color: "var(--mint-text)" }}
+                    >
+                      <Icon name="check" size={15} />
+                      제출되었습니다
+                    </p>
 
-                  {q.type === "text" ? (
-                    <textarea
-                      value={(a[q.id] as string) ?? ""}
-                      onChange={(e) => setText(v, q, e.target.value)}
-                      onBlur={() => save(v.id, a)}
-                      rows={2}
-                      placeholder="자유롭게 적어주세요"
-                      className="nr-input mt-2"
-                      style={{ fontSize: 14 }}
-                    />
-                  ) : (
-                    <div className="mt-2 flex flex-col gap-1.5">
-                      {q.options.map((o) => {
-                        const on =
-                          q.type === "multi"
-                            ? Array.isArray(a[q.id]) && (a[q.id] as string[]).includes(o)
-                            : a[q.id] === o;
-                        return (
-                          <button
-                            key={o}
-                            onClick={() => toggle(v, q, o)}
-                            disabled={!meId}
-                            className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-left"
-                            style={
-                              on
-                                ? { border: "1.5px solid var(--red)", background: "var(--red-wash)" }
-                                : { border: "1px solid var(--border)" }
-                            }
-                          >
-                            <span
-                              className="shrink-0"
-                              style={{
-                                width: 17,
-                                height: 17,
-                                borderRadius: q.type === "multi" ? 5 : "50%",
-                                border: on ? "5px solid var(--red)" : "1.5px solid #DCD6D5",
-                                background: "#fff",
-                              }}
-                            />
-                            <span
-                              className="text-[14px]"
-                              style={{
-                                color: on ? "var(--red-deep)" : "var(--ink)",
-                                fontWeight: on ? 700 : 500,
-                              }}
-                            >
-                              {o}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div className="mt-2.5 flex flex-col gap-2">
+                      {summaryOf(v).map((row) => (
+                        <div key={row.label}>
+                          <p className="text-[11px]" style={{ color: "var(--mint-text)", opacity: 0.8 }}>
+                            {row.label}
+                          </p>
+                          <p className="text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>
+                            {row.text}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
 
-              <p className="mt-4 text-[11.5px]" style={{ color: done ? "var(--mint-text)" : "var(--muted)" }}>
-                {savedAt === v.id
-                  ? "저장했어요"
-                  : done
-                  ? "응답 완료 · 마감 전까지 바꿀 수 있어요"
-                  : "고르는 대로 저장돼요"}
-              </p>
+                  {justSent === v.id && (
+                    <p className="mt-2 text-[11.5px]" style={{ color: "var(--mint-text)" }}>
+                      방금 제출했어요.
+                    </p>
+                  )}
+
+                  <button onClick={() => startEdit(v)} className="nr-btn nr-btn-ghost mt-3 py-3">
+                    수정하기
+                  </button>
+                </>
+              ) : (
+                /* ── 입력 ── */
+                <>
+                  {qs.map((q) => (
+                    <div key={q.id} className="mt-5">
+                      <p className="text-[12.5px] font-bold" style={{ color: "var(--ink)" }}>
+                        {q.label}
+                        {q.type === "multi" && (
+                          <span className="ml-1 font-normal" style={{ color: "var(--muted)" }}>
+                            · 여러 개 선택 가능
+                          </span>
+                        )}
+                      </p>
+
+                      {q.type === "text" ? (
+                        <textarea
+                          value={(a[q.id] as string) ?? ""}
+                          onChange={(e) => setText(v, q, e.target.value)}
+                          rows={2}
+                          placeholder="자유롭게 적어주세요"
+                          className="nr-input mt-2"
+                          style={{ fontSize: 14 }}
+                        />
+                      ) : (
+                        <div className="mt-2 flex flex-col gap-1.5">
+                          {q.options.map((o) => {
+                            const on =
+                              q.type === "multi"
+                                ? Array.isArray(a[q.id]) && (a[q.id] as string[]).includes(o)
+                                : a[q.id] === o;
+                            return (
+                              <button
+                                key={o}
+                                onClick={() => toggle(v, q, o)}
+                                disabled={!meId}
+                                className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-left"
+                                style={
+                                  on
+                                    ? { border: "1.5px solid var(--red)", background: "var(--red-wash)" }
+                                    : { border: "1px solid var(--border)" }
+                                }
+                              >
+                                <span
+                                  className="shrink-0"
+                                  style={{
+                                    width: 17,
+                                    height: 17,
+                                    borderRadius: q.type === "multi" ? 5 : "50%",
+                                    border: on ? "5px solid var(--red)" : "1.5px solid #DCD6D5",
+                                    background: "#fff",
+                                  }}
+                                />
+                                <span
+                                  className="text-[14px]"
+                                  style={{
+                                    color: on ? "var(--red-deep)" : "var(--ink)",
+                                    fontWeight: on ? 700 : 500,
+                                  }}
+                                >
+                                  {o}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  <div className="mt-4 flex gap-2">
+                    {done && (
+                      <button
+                        onClick={() => setEditing(null)}
+                        className="nr-btn nr-btn-ghost flex-1 py-3"
+                      >
+                        취소
+                      </button>
+                    )}
+                    <button
+                      onClick={() => submit(v.id)}
+                      disabled={!ready}
+                      className="nr-btn nr-btn-primary flex-1"
+                      style={ready ? undefined : { opacity: 0.5 }}
+                    >
+                      {done ? "수정 완료" : "제출하기"}
+                    </button>
+                  </div>
+
+                  {!ready && (
+                    <p className="mt-2 text-center text-[11.5px]" style={{ color: "var(--muted)" }}>
+                      모든 질문에 답해주세요
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           );
         })}

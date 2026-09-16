@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { SubHeader } from "@/components/AppHeader";
 import Icon from "@/components/Icon";
 import EventList, { type EventRow } from "@/components/EventList";
+import { won as wonS, type Settlement, type SettlementItem } from "@/lib/settlement";
 import {
   answersOf,
   isAnswered,
@@ -51,6 +52,7 @@ export default function MyPage() {
   const [votes, setVotes] = useState<VoteRow[]>([]);
   const [myRows, setMyRows] = useState<Record<string, ResponseRow>>({});
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [settles, setSettles] = useState<{ s: Settlement; it: SettlementItem }[]>([]);
   const [rulesTodo, setRulesTodo] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -128,6 +130,22 @@ export default function MyPage() {
         return !(acks ?? []).some((a) => a.rule_id === r.id && a.version === r.version);
       });
       setRulesTodo(mine.length);
+
+      // 내게 청구된 정산
+      const { data: its } = await supabase.from("settlement_items").select("*").eq("member_id", meId);
+      const itemRows = (its ?? []) as SettlementItem[];
+      if (itemRows.length) {
+        const { data: ss } = await supabase
+          .from("settlements")
+          .select("*")
+          .in("id", itemRows.map((i) => i.settlement_id));
+        const sList = (ss ?? []) as Settlement[];
+        setSettles(
+          itemRows
+            .map((it) => ({ it, s: sList.find((x) => x.id === it.settlement_id) }))
+            .filter((x): x is { it: SettlementItem; s: Settlement } => !!x.s && x.s.is_open)
+        );
+      }
       setError("");
     } catch {
       setError("불러오지 못했어요.");
@@ -147,6 +165,18 @@ export default function MyPage() {
       { period_id: period.id, member_id: me.id, paid: false, claimed_at: stamp },
       { onConflict: "period_id,member_id" }
     );
+    if (e) setError("전달하지 못했어요.");
+  }
+
+  async function claimSettle(it: SettlementItem) {
+    const stamp = new Date().toISOString();
+    setSettles((cur) =>
+      cur.map((x) => (x.it.id === it.id ? { ...x, it: { ...x.it, claimed_at: stamp } } : x))
+    );
+    const { error: e } = await supabase
+      .from("settlement_items")
+      .update({ claimed_at: stamp })
+      .eq("id", it.id);
     if (e) setError("전달하지 못했어요.");
   }
 
@@ -227,6 +257,9 @@ export default function MyPage() {
               notVoted.length > 0 ? `투표 ${notVoted.length}개` : null,
               rulesTodo > 0 ? `규정 확인 ${rulesTodo}개` : null,
               !paid && !exempt && owed > 0 ? "회비 미납" : null,
+              settles.filter((x) => !x.it.paid).length > 0
+                ? `정산 ${settles.filter((x) => !x.it.paid).length}건`
+                : null,
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -337,6 +370,61 @@ export default function MyPage() {
           </div>
         )}
       </section>
+
+      {/* 정산 */}
+      {settles.length > 0 && (
+        <section className="mt-6">
+          <h2 className="nr-h2">정산</h2>
+          <div className="mt-2.5 flex flex-col gap-2">
+            {settles.map(({ s, it }) => (
+              <div key={it.id} className="nr-card p-4">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="nr-badge"
+                    style={
+                      it.paid
+                        ? { background: "var(--mint)", color: "#1F6B73" }
+                        : it.claimed_at
+                        ? { background: "#FFF6E8", color: "#9A5B2E" }
+                        : { background: "var(--red)", color: "#fff" }
+                    }
+                  >
+                    {it.paid ? "완료" : it.claimed_at ? "확인 대기중" : "미납"}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[14px] font-bold" style={{ color: "var(--ink)" }}>
+                    {s.title}
+                  </span>
+                  <span className="text-[15px] font-extrabold" style={{ color: "var(--ink)" }}>
+                    {wonS(it.amount)}
+                  </span>
+                </div>
+
+                {s.memo && (
+                  <p className="mt-1.5 whitespace-pre-wrap text-[12px] leading-relaxed" style={{ color: "var(--muted)" }}>
+                    {s.memo}
+                  </p>
+                )}
+                {s.due_date && !it.paid && (
+                  <p className="mt-1 text-[11.5px]" style={{ color: "var(--muted)" }}>
+                    {s.due_date} 까지
+                  </p>
+                )}
+
+                {!it.paid && !it.claimed_at && (
+                  <button onClick={() => claimSettle(it)} className="nr-btn nr-btn-primary mt-3 py-3">
+                    보냈어요
+                  </button>
+                )}
+                {!it.paid && it.claimed_at && (
+                  <p className="mt-2 text-center text-[11.5px]" style={{ color: "var(--muted)" }}>
+                    운영자 확인을 기다리는 중이에요.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 투표 */}
       <section className="mt-6">
