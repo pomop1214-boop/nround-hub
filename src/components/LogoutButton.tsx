@@ -45,16 +45,6 @@ export default function LogoutButton() {
         </Link>
       )}
 
-      <div className="mt-8 flex items-center justify-center gap-4">
-        <Link
-          href="/admin"
-          className="flex items-center gap-1.5 text-[12px]"
-          style={{ color: "var(--muted)" }}
-        >
-          <Icon name="settings" size={13} />
-          관리자
-        </Link>
-      </div>
     </>
   );
 }

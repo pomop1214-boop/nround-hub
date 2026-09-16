@@ -127,11 +127,16 @@ export default function VotesPanel() {
     if (!draft.title.trim()) return setError("투표 제목을 입력해주세요.");
 
     const cleaned = draft.questions
-      .map((q) => ({
-        ...q,
-        label: q.label.trim(),
-        options: q.type === "text" ? [] : q.options.map((o) => o.trim()).filter(Boolean),
-      }))
+      .map((q) => {
+        const options = q.type === "text" ? [] : q.options.map((o) => o.trim()).filter(Boolean);
+        return {
+          ...q,
+          label: q.label.trim(),
+          options,
+          // 보기에서 지워진 값이 남지 않게 정리합니다.
+          endsOn: (q.endsOn ?? []).filter((o) => options.includes(o)),
+        };
+      })
       .filter((q) => q.label);
 
     if (cleaned.length === 0) return setError("질문을 하나 이상 만들어주세요.");
@@ -331,6 +336,38 @@ export default function VotesPanel() {
                   <p className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
                     한 줄에 하나씩 적어주세요
                   </p>
+
+                  {q.type === "single" && q.options.filter(Boolean).length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                        이 답을 고르면 뒤 질문을 묻지 않아요
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {q.options.filter(Boolean).map((o) => {
+                          const on = (q.endsOn ?? []).includes(o);
+                          return (
+                            <button
+                              key={o}
+                              type="button"
+                              onClick={() =>
+                                patchQ(q.id, {
+                                  endsOn: on
+                                    ? (q.endsOn ?? []).filter((x) => x !== o)
+                                    : [...(q.endsOn ?? []), o],
+                                })
+                              }
+                              className={"nr-btn-sm " + (on ? "nr-btn-sm-solid" : "")}
+                            >
+                              {o}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
+                        아무것도 안 고르면 &lsquo;불참&rsquo;이 들어간 보기를 자동으로 그렇게 봐요.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
             </div>

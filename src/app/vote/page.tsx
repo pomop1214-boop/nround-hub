@@ -10,6 +10,8 @@ import {
   fmtDeadline,
   isComplete,
   questionsOf,
+  stopsAt,
+  visibleQuestions,
   type Answers,
   type Question,
   type ResponseRow,
@@ -114,7 +116,7 @@ export default function VotePage() {
   /** 내가 고른 답을 사람이 읽기 좋게 */
   function summaryOf(v: VoteRow) {
     const a = mine[v.id] ?? {};
-    return questionsOf(v)
+    return visibleQuestions(questionsOf(v), a)
       .filter((q) => isAnswered(a, q))
       .map((q) => {
         const val = a[q.id];
@@ -219,7 +221,7 @@ export default function VotePage() {
               ) : (
                 /* ── 입력 ── */
                 <>
-                  {qs.map((q) => (
+                  {visibleQuestions(qs, a).map((q) => (
                     <div key={q.id} className="mt-5">
                       <p className="text-[12.5px] font-bold" style={{ color: "var(--ink)" }}>
                         {q.label}
@@ -284,6 +286,12 @@ export default function VotePage() {
                       )}
                     </div>
                   ))}
+
+                  {stopsAt(qs, a) !== null && stopsAt(qs, a)! < qs.length - 1 && (
+                    <p className="mt-3 text-[11.5px]" style={{ color: "var(--muted)" }}>
+                      나머지 질문은 답하지 않아도 돼요.
+                    </p>
+                  )}
 
                   <div className="mt-4 flex gap-2">
                     {done && (

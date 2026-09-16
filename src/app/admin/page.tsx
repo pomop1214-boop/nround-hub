@@ -10,20 +10,18 @@ import MembersPanel from "@/components/admin/MembersPanel";
 import DuesPeriodsPanel from "@/components/admin/DuesPeriodsPanel";
 import StrikesPanel from "@/components/admin/StrikesPanel";
 import RulesPanel from "@/components/admin/RulesPanel";
-import EventsPanel from "@/components/admin/EventsPanel";
 import RequestsPanel from "@/components/admin/RequestsPanel";
 import VotesPanel from "@/components/admin/VotesPanel";
 import BuskingPanel from "@/components/admin/BuskingPanel";
 import SettlementsPanel from "@/components/admin/SettlementsPanel";
 
-type Tab = "requests" | "notice" | "votes" | "busking" | "events" | "members" | "dues" | "settle" | "strikes" | "rules";
+type Tab = "requests" | "notice" | "votes" | "busking" | "members" | "dues" | "settle" | "strikes" | "rules";
 
 const TABS: { key: Tab; label: string; roles: AdminRole[] }[] = [
   { key: "requests", label: "요청", roles: ["lead"] },
   { key: "notice", label: "공지 발송", roles: ["lead", "sub_lead"] },
   { key: "votes", label: "투표", roles: ["lead"] },
   { key: "busking", label: "버스킹", roles: ["lead"] },
-  { key: "events", label: "일정", roles: ["lead"] },
   { key: "members", label: "크루원", roles: ["lead"] },
   { key: "dues", label: "회비 회차", roles: ["lead"] },
   { key: "settle", label: "정산", roles: ["lead", "sub_lead", "supporter"] },
@@ -186,7 +184,6 @@ function AdminBody({ role }: { role: AdminRole }) {
         {tab === "notice" && <NoticeForm />}
         {tab === "votes" && <VotesPanel />}
         {tab === "busking" && <BuskingPanel />}
-        {tab === "events" && <EventsPanel />}
         {tab === "members" && <MembersPanel />}
         {tab === "dues" && (
           <>

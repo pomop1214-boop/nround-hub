@@ -267,17 +267,15 @@ export default function MyPage() {
         </div>
       )}
 
-      {/* 다가오는 일정 */}
-      <section className="mt-6">
-        <h2 className="nr-h2">다가오는 일정</h2>
-        <div className="mt-2.5">
-          {events.length === 0 ? (
-            <p className="nr-empty">예정된 일정이 없어요.</p>
-          ) : (
+      {/* 다가오는 일정 — 있을 때만 */}
+      {events.length > 0 && (
+        <section className="mt-6">
+          <h2 className="nr-h2">다가오는 일정</h2>
+          <div className="mt-2.5">
             <EventList events={events} />
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
       {/* 회비 */}
       <section className="mt-6">
