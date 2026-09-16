@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, readSessionEdge } from "@/lib/authEdge";
 
 /** 로그인 없이 열 수 있는 경로 */
-const PUBLIC = ["/login", "/api/login", "/api/logout", "/api/setup-status", "/api/request"];
+const PUBLIC = [
+  "/login",
+  "/api/login",
+  "/api/logout",
+  "/api/setup-status",
+  "/api/request",
+  // 마감 알림은 스케줄러가 부르므로 로그인 세션이 없습니다.
+  // 대신 CRON_SECRET 으로 스스로 확인합니다.
+  "/api/reminders",
+];
 
 /**
  * 크루원이 한 명도 없는 초기 상태인지 확인합니다.
