@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { answersOf, isComplete, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
 
 const FINE_PER_UNIT = 5000; // 3회당 벌금
 const STRIKES_PER_FINE = 3;
@@ -15,7 +16,7 @@ function byRoleThenName(a: Member, b: Member) {
   if (ra !== rb) return ra - rb;
   return a.name.localeCompare(b.name, "ko");
 }
-type Vote = { id: string; title: string; deadline: string | null; is_open: boolean };
+
 type Strike = {
   id: string;
   member_id: string;
@@ -31,9 +32,9 @@ function won(n: number) {
 
 export default function StrikesPanel() {
   const [members, setMembers] = useState<Member[]>([]);
-  const [votes, setVotes] = useState<Vote[]>([]);
+  const [votes, setVotes] = useState<VoteRow[]>([]);
   const [strikes, setStrikes] = useState<Strike[]>([]);
-  const [responded, setResponded] = useState<Record<string, string[]>>({});
+  const [rows, setRows] = useState<ResponseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -44,29 +45,21 @@ export default function StrikesPanel() {
     try {
       const [{ data: ms }, { data: vs }, { data: ss }] = await Promise.all([
         supabase.from("crew_members").select("id, name, role").eq("active", true).order("name"),
-        supabase
-          .from("votes")
-          .select("id, title, deadline, is_open")
-          .order("created_at", { ascending: false })
-          .limit(20),
+        supabase.from("votes").select("*").order("created_at", { ascending: false }).limit(20),
         supabase.from("strikes").select("*").order("created_at", { ascending: false }),
       ]);
 
       setMembers(((ms ?? []) as Member[]).sort(byRoleThenName));
-      setVotes((vs ?? []) as Vote[]);
+      setVotes((vs ?? []) as VoteRow[]);
       setStrikes((ss ?? []) as Strike[]);
 
       const ids = (vs ?? []).map((v) => v.id);
       if (ids.length) {
         const { data: rs } = await supabase
           .from("vote_responses")
-          .select("vote_id, member_id")
+          .select("vote_id, member_id, choice, answers")
           .in("vote_id", ids);
-        const map: Record<string, string[]> = {};
-        (rs ?? []).forEach((r) => {
-          (map[r.vote_id] ||= []).push(r.member_id);
-        });
-        setResponded(map);
+        setRows((rs ?? []) as ResponseRow[]);
       }
       setError("");
     } catch {
@@ -92,14 +85,18 @@ export default function StrikesPanel() {
     return votes
       .filter((v) => v.deadline && new Date(v.deadline).getTime() < nowMs)
       .map((v) => {
-        const done = responded[v.id] ?? [];
+        const qs = questionsOf(v);
+        // 질문을 다 채운 사람만 "응답함"으로 봅니다(하나만 누르고 만 경우는 미응답).
+        const done = rows
+          .filter((r) => r.vote_id === v.id && isComplete(answersOf(r), qs))
+          .map((r) => r.member_id);
         const missing = members.filter(
           (m) => !done.includes(m.id) && !strikes.some((s) => s.vote_id === v.id && s.member_id === m.id)
         );
         return { vote: v, missing };
       })
       .filter((p) => p.missing.length > 0);
-  }, [votes, responded, members, strikes]);
+  }, [votes, rows, members, strikes]);
 
   async function addStrike(memberId: string, reason: string, voteId: string | null) {
     const { error: e } = await supabase

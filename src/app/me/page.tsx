@@ -7,6 +7,14 @@ import { supabase } from "@/lib/supabase";
 import { SubHeader } from "@/components/AppHeader";
 import Icon from "@/components/Icon";
 import EventList, { type EventRow } from "@/components/EventList";
+import {
+  answersOf,
+  isAnswered,
+  isComplete,
+  questionsOf,
+  type ResponseRow,
+  type VoteRow,
+} from "@/lib/vote";
 
 const ME_KEY = "nround_me_v1";
 const ACCOUNT = { bank: "카카오뱅크", number: "3333315776031", label: "N.ROUND 모임통장" };
@@ -28,8 +36,7 @@ type Period = {
   guest_amount: number;
 };
 type Payment = { paid: boolean; claimed_at: string | null; visit_count: number };
-type Vote = { id: string; title: string; deadline: string | null };
-type MyResponse = { vote_id: string; choice: string };
+
 type Rule = { id: string; version: number; requires_ack: boolean };
 
 function won(n: number) {
@@ -41,8 +48,8 @@ export default function MyPage() {
   const [me, setMe] = useState<Member | null>(null);
   const [period, setPeriod] = useState<Period | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
-  const [votes, setVotes] = useState<Vote[]>([]);
-  const [myChoices, setMyChoices] = useState<Record<string, string>>({});
+  const [votes, setVotes] = useState<VoteRow[]>([]);
+  const [myRows, setMyRows] = useState<Record<string, ResponseRow>>({});
   const [events, setEvents] = useState<EventRow[]>([]);
   const [rulesTodo, setRulesTodo] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -66,7 +73,7 @@ export default function MyPage() {
           .limit(1),
         supabase
           .from("votes")
-          .select("id, title, deadline")
+          .select("*")
           .eq("is_open", true)
           .order("created_at", { ascending: false }),
         supabase
@@ -82,7 +89,7 @@ export default function MyPage() {
       setMe((m ?? null) as Member | null);
       const cur = (ps ?? [])[0] ?? null;
       setPeriod(cur);
-      setVotes((vs ?? []) as Vote[]);
+      setVotes((vs ?? []) as VoteRow[]);
 
       if (cur) {
         const { data: pay } = await supabase
@@ -98,14 +105,14 @@ export default function MyPage() {
       if (ids.length) {
         const { data: rs } = await supabase
           .from("vote_responses")
-          .select("vote_id, choice")
+          .select("vote_id, member_id, choice, answers")
           .eq("member_id", meId)
           .in("vote_id", ids);
-        const map: Record<string, string> = {};
-        (rs ?? []).forEach((r) => {
-          map[r.vote_id] = r.choice;
+        const map: Record<string, ResponseRow> = {};
+        ((rs ?? []) as ResponseRow[]).forEach((r) => {
+          map[r.vote_id] = r;
         });
-        setMyChoices(map);
+        setMyRows(map);
       }
 
       // 확인이 필요한 규정 개수
@@ -158,7 +165,9 @@ export default function MyPage() {
   const paid = !!payment?.paid;
   const claimed = !paid && !!payment?.claimed_at;
 
-  const notVoted = votes.filter((v) => !myChoices[v.id]);
+  /** 주관식을 뺀 질문을 모두 답했을 때만 "완료"로 봅니다. */
+  const doneWith = (v: VoteRow) => isComplete(answersOf(myRows[v.id]), questionsOf(v));
+  const notVoted = votes.filter((v) => !doneWith(v));
 
   if (loading) {
     return (
@@ -341,17 +350,28 @@ export default function MyPage() {
             <p className="nr-empty">진행 중인 투표가 없어요.</p>
           ) : (
             votes.map((v) => {
-              const choice = myChoices[v.id];
+              const qs = questionsOf(v);
+              const a = answersOf(myRows[v.id]);
+              const done = isComplete(a, qs);
+              // 내가 고른 답을 한 줄로 보여줍니다.
+              const summary = qs
+                .filter((q) => isAnswered(a, q))
+                .map((q) => {
+                  const val = a[q.id];
+                  return Array.isArray(val) ? val.join(", ") : String(val ?? "");
+                })
+                .filter(Boolean)
+                .join(" · ");
               return (
                 <Link key={v.id} href="/vote" className="nr-card flex items-center gap-3 p-3.5">
                   <span
                     className="grid h-7 w-7 shrink-0 place-items-center rounded-full"
                     style={{
-                      background: choice ? "var(--mint)" : "var(--red-tint)",
-                      color: choice ? "#1F6B73" : "var(--red)",
+                      background: done ? "var(--mint)" : "var(--red-tint)",
+                      color: done ? "#1F6B73" : "var(--red)",
                     }}
                   >
-                    <Icon name={choice ? "check" : "alert"} size={14} />
+                    <Icon name={done ? "check" : "alert"} size={14} />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span
@@ -362,9 +382,15 @@ export default function MyPage() {
                     </span>
                     <span
                       className="mt-0.5 block truncate text-[11.5px]"
-                      style={{ color: choice ? "var(--muted)" : "var(--red)" }}
+                      style={{ color: done ? "var(--muted)" : "var(--red)" }}
                     >
-                      {choice ? `내 선택 · ${choice}` : "아직 응답하지 않았어요"}
+                      {done
+                        ? summary
+                          ? `내 선택 · ${summary}`
+                          : "응답 완료"
+                        : summary
+                        ? `작성 중 · ${summary}`
+                        : "아직 응답하지 않았어요"}
                     </span>
                   </span>
                   <span style={{ color: "var(--muted)" }}>
