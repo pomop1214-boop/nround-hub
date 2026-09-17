@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   answersOf,
+  isTarget,
   pickedBy,
   questionsOf,
   type ResponseRow,
   type VoteRow,
 } from "@/lib/vote";
 
-type Member = { id: string; name: string; role: string | null };
+type Member = { id: string; name: string; role: string | null; member_type: string };
 
 const ROLE_ORDER: Record<string, number> = { lead: 0, sub_lead: 1, supporter: 2 };
 function byRoleThenName(a: Member, b: Member) {
@@ -40,7 +41,7 @@ export default function VoteReportPage({ params }: { params: { id: string } }) {
     const [{ data: v }, { data: rs }, { data: ms }] = await Promise.all([
       supabase.from("votes").select("*").eq("id", params.id).maybeSingle(),
       supabase.from("vote_responses").select("vote_id, member_id, choice, answers").eq("vote_id", params.id),
-      supabase.from("crew_members").select("id, name, role").eq("active", true),
+      supabase.from("crew_members").select("id, name, role, member_type").eq("active", true),
     ]);
     setVote((v ?? null) as VoteRow | null);
     setRows((rs ?? []) as ResponseRow[]);
@@ -75,7 +76,8 @@ export default function VoteReportPage({ params }: { params: { id: string } }) {
   const qs = questionsOf(vote);
   const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? "?";
   const answered = rows.map((r) => r.member_id);
-  const missing = members.filter((m) => !answered.includes(m.id));
+  const targets = members.filter((m) => isTarget(vote, m));
+  const missing = targets.filter((m) => !answered.includes(m.id));
 
   return (
     <main className="rp">
@@ -89,7 +91,8 @@ export default function VoteReportPage({ params }: { params: { id: string } }) {
         <h1>{vote.title}</h1>
         <p className="rp-meta">
           {vote.category}
-          {vote.deadline ? ` · ${fmtFull(vote.deadline)} 마감` : ""} · 응답 {rows.length} / {members.length}명
+          {vote.deadline ? ` · ${fmtFull(vote.deadline)} 마감` : ""} · 응답 {rows.length} / {targets.length}명
+          {vote.include_guests === false ? " · 회원만" : ""}
         </p>
       </header>
 

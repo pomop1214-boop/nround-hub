@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { answersOf, isComplete, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
+import { answersOf, isComplete, isTarget, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
 
 export type AlertNotice = { id: string; title: string; body: string | null; created_at: string };
 export type AlertRule = { id: string; title: string };
@@ -52,8 +52,14 @@ export async function loadAlerts(meId: string): Promise<Alerts> {
   }, [] as AlertNotice[]);
 
   const votes = await safe(async () => {
-    const { data: vs } = await supabase.from("votes").select("*").eq("is_open", true);
-    const list = (vs ?? []) as VoteRow[];
+    const [{ data: vs }, { data: me }] = await Promise.all([
+      supabase.from("votes").select("*").eq("is_open", true),
+      supabase.from("crew_members").select("member_type").eq("id", meId).maybeSingle(),
+    ]);
+    // 대상이 아닌 투표는 알림에서 뺍니다.
+    const list = ((vs ?? []) as VoteRow[]).filter((v) =>
+      isTarget(v, { id: meId, member_type: me?.member_type })
+    );
     if (list.length === 0) return [];
     const { data: rs } = await supabase
       .from("vote_responses")

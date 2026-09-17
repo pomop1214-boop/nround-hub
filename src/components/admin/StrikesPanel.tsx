@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { answersOf, isComplete, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
+import { answersOf, isComplete, isTarget, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
 
 const FINE_PER_UNIT = 5000; // 3회당 벌금
 const STRIKES_PER_FINE = 3;
 
-type Member = { id: string; name: string; role: string | null };
+type Member = { id: string; name: string; role: string | null; member_type: string };
 
 const ROLE_ORDER: Record<string, number> = { lead: 0, sub_lead: 1, supporter: 2 };
 function byRoleThenName(a: Member, b: Member) {
@@ -44,7 +44,7 @@ export default function StrikesPanel() {
     setLoading(true);
     try {
       const [{ data: ms }, { data: vs }, { data: ss }] = await Promise.all([
-        supabase.from("crew_members").select("id, name, role").eq("active", true).order("name"),
+        supabase.from("crew_members").select("id, name, role, member_type").eq("active", true).order("name"),
         supabase.from("votes").select("*").order("created_at", { ascending: false }).limit(20),
         supabase.from("strikes").select("*").order("created_at", { ascending: false }),
       ]);
@@ -90,9 +90,11 @@ export default function StrikesPanel() {
         const done = rows
           .filter((r) => r.vote_id === v.id && isComplete(answersOf(r), qs))
           .map((r) => r.member_id);
-        const missing = members.filter(
-          (m) => !done.includes(m.id) && !strikes.some((s) => s.vote_id === v.id && s.member_id === m.id)
-        );
+        const missing = members
+          .filter((m) => isTarget(v, m))
+          .filter(
+            (m) => !done.includes(m.id) && !strikes.some((s) => s.vote_id === v.id && s.member_id === m.id)
+          );
         return { vote: v, missing };
       })
       .filter((p) => p.missing.length > 0);

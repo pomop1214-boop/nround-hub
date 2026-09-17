@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendPush } from "@/lib/push-server";
 import { readSession, SESSION_COOKIE } from "@/lib/auth";
-import { answersOf, isComplete, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
+import { answersOf, isComplete, isTarget, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
 
 export const dynamic = "force-dynamic";
 
@@ -38,14 +38,14 @@ export async function POST(req: NextRequest) {
 
     const vote = v as VoteRow;
     const [{ data: ms }, { data: rs }] = await Promise.all([
-      supabaseAdmin.from("crew_members").select("id").eq("active", true),
+      supabaseAdmin.from("crew_members").select("id, member_type").eq("active", true),
       supabaseAdmin
         .from("vote_responses")
         .select("vote_id, member_id, choice, answers")
         .eq("vote_id", id),
     ]);
 
-    const members = ms ?? [];
+    const members = (ms ?? []).filter((m) => isTarget(vote, m));
     const rows = (rs ?? []) as ResponseRow[];
     const qs = questionsOf(vote);
     const done =

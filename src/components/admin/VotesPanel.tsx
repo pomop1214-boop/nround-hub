@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import Icon from "@/components/Icon";
 import {
   answersOf,
+  isTarget,
   fmtDeadline,
   newQuestionId,
   pickedBy,
@@ -18,7 +19,7 @@ import {
 
 const CATEGORIES = ["월 참여", "주 참여", "기타"] as const;
 
-type Member = { id: string; name: string; role: string | null };
+type Member = { id: string; name: string; role: string | null; member_type: string };
 
 const ROLE_ORDER: Record<string, number> = { lead: 0, sub_lead: 1, supporter: 2 };
 function byRoleThenName(a: Member, b: Member) {
@@ -33,6 +34,7 @@ type Draft = {
   title: string;
   category: string;
   deadline: string;
+  includeGuests: boolean;
   questions: Question[];
 };
 
@@ -42,6 +44,7 @@ function emptyDraft(): Draft {
     title: "",
     category: "주 참여",
     deadline: "",
+    includeGuests: true,
     questions: [{ id: newQuestionId(), label: "참석 여부", type: "single", options: ["참석", "불참"] }],
   };
 }
@@ -68,7 +71,7 @@ export default function VotesPanel() {
     try {
       const [{ data: vs }, { data: ms }] = await Promise.all([
         supabase.from("votes").select("*").order("created_at", { ascending: false }),
-        supabase.from("crew_members").select("id, name, role").eq("active", true),
+        supabase.from("crew_members").select("id, name, role, member_type").eq("active", true),
       ]);
       const list = (vs ?? []) as VoteRow[];
       setVotes(list);
@@ -148,6 +151,7 @@ export default function VotesPanel() {
       category: draft.category,
       questions: cleaned,
       options: [],
+      include_guests: draft.includeGuests,
       deadline: draft.deadline ? new Date(draft.deadline).toISOString() : null,
     };
 
@@ -169,7 +173,7 @@ export default function VotesPanel() {
             title: `새 투표 · ${payload.title}`,
             body: payload.deadline ? `${fmtDeadline(payload.deadline)}까지 응답해주세요` : "응답해주세요",
             url: "/vote",
-            memberIds: members.map((m) => m.id),
+            memberIds: members.filter((m) => draft.includeGuests || m.member_type !== "guest").map((m) => m.id),
           }),
         });
       } catch {
@@ -200,7 +204,12 @@ export default function VotesPanel() {
   function copySummary(v: VoteRow) {
     const qs = questionsOf(v);
     const rows = rowsFor(v.id);
-    const lines: string[] = [`[${v.title}]`, `응답 ${rows.length} / ${members.length}명`, ""];
+    const targets = members.filter((m) => isTarget(v, m));
+    const lines: string[] = [
+      `[${v.title}]`,
+      `응답 ${rows.length} / ${targets.length}명${v.include_guests === false ? " (회원만)" : ""}`,
+      "",
+    ];
 
     qs.forEach((q) => {
       lines.push(`■ ${q.label}`);
@@ -219,7 +228,7 @@ export default function VotesPanel() {
     });
 
     const answered = rows.map((r) => r.member_id);
-    const missing = members.filter((m) => !answered.includes(m.id));
+    const missing = targets.filter((m) => !answered.includes(m.id));
     if (missing.length) lines.push(`미응답 ${missing.length}명 — ${missing.map((m) => m.name).join(", ")}`);
 
     navigator.clipboard.writeText(lines.join("\n"));
@@ -261,6 +270,25 @@ export default function VotesPanel() {
                 {c}
               </button>
             ))}
+          </div>
+
+          <div
+            className="rounded-xl p-3"
+            style={{ background: "var(--red-wash)", border: "1px solid var(--red-tint)" }}
+          >
+            <label className="flex items-center gap-2 text-[12.5px]" style={{ color: "var(--ink)" }}>
+              <input
+                type="checkbox"
+                checked={draft.includeGuests}
+                onChange={(e) => setDraft({ ...draft, includeGuests: e.target.checked })}
+              />
+              비회원도 참여하는 투표
+            </label>
+            <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: "var(--muted)" }}>
+              {draft.includeGuests
+                ? "회원과 비회원 모두에게 보여요."
+                : "회원에게만 보이고, 비회원은 미응답으로 잡히지 않아요."}
+            </p>
           </div>
 
           <label className="text-[11.5px]" style={{ color: "var(--muted)" }}>
@@ -403,7 +431,8 @@ export default function VotesPanel() {
           const qs = questionsOf(v);
           const rows = rowsFor(v.id);
           const answered = rows.map((r) => r.member_id);
-          const missing = members.filter((m) => !answered.includes(m.id));
+          const targets = members.filter((m) => isTarget(v, m));
+          const missing = targets.filter((m) => !answered.includes(m.id));
           const showing = openId === v.id;
 
           return (
@@ -424,7 +453,8 @@ export default function VotesPanel() {
                 {v.title}
               </p>
               <p className="mt-1 text-[11.5px]" style={{ color: "var(--muted)" }}>
-                질문 {qs.length}개 · 응답 {rows.length}/{members.length}명
+                질문 {qs.length}개 · 응답 {rows.length}/{targets.length}명
+                {v.include_guests === false && " · 회원만"}
                 {missing.length > 0 && ` · 미응답 ${missing.map((m) => m.name).join(", ")}`}
               </p>
 
@@ -439,6 +469,7 @@ export default function VotesPanel() {
                       title: v.title,
                       category: v.category,
                       deadline: toLocalInput(v.deadline),
+                      includeGuests: v.include_guests !== false,
                       questions: questionsOf(v),
                     })
                   }

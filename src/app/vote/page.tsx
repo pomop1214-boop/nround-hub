@@ -9,6 +9,7 @@ import {
   isAnswered,
   fmtDeadline,
   isComplete,
+  isTarget,
   questionsOf,
   stopsAt,
   visibleQuestions,
@@ -35,12 +36,21 @@ export default function VotePage() {
   const load = useCallback(async (memberId: string | null) => {
     setLoading(true);
     try {
-      const { data: vs } = await supabase
-        .from("votes")
-        .select("*")
-        .eq("is_open", true)
-        .order("created_at", { ascending: false });
-      const list = (vs ?? []) as VoteRow[];
+      const [{ data: vs }, { data: me }] = await Promise.all([
+        supabase
+          .from("votes")
+          .select("*")
+          .eq("is_open", true)
+          .order("created_at", { ascending: false }),
+        memberId
+          ? supabase.from("crew_members").select("member_type").eq("id", memberId).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+
+      // 회원만 참여하는 투표는 비회원에게 보이지 않습니다.
+      const list = ((vs ?? []) as VoteRow[]).filter((v) =>
+        isTarget(v, { id: memberId ?? "", member_type: me?.member_type })
+      );
       setVotes(list);
 
       if (memberId && list.length) {

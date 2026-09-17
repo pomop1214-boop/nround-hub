@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendPush } from "@/lib/push-server";
-import { answersOf, isComplete, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
+import { answersOf, isComplete, isTarget, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
     const qs = questionsOf(v);
 
     const missing = members
+      .filter((m) => isTarget(v, m))
       .filter((m) => {
         const mine = rows.find((r) => r.member_id === m.id);
         return !isComplete(answersOf(mine), qs);

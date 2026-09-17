@@ -20,8 +20,23 @@ export type VoteRow = {
   questions: Question[] | null;
   deadline: string | null;
   is_open: boolean;
+  /** 비회원도 참여하는 투표인지 */
+  include_guests: boolean;
   created_at: string;
 };
+
+export type VoteMember = { id: string; member_type?: string | null };
+
+/** 이 투표에 응답해야 하는 사람인지 */
+export function isTarget(v: VoteRow, m: VoteMember) {
+  if (v.include_guests === false && m.member_type === "guest") return false;
+  return true;
+}
+
+/** 이 투표의 응답 대상자만 골라냅니다. */
+export function targetsOf<T extends VoteMember>(v: VoteRow, members: T[]): T[] {
+  return members.filter((m) => isTarget(v, m));
+}
 
 export type Answers = Record<string, string | string[] | undefined>;
 

@@ -33,7 +33,7 @@ export default async function HomePage() {
     supabase.from("announcements").select("*").order("created_at", { ascending: false }).limit(4),
     supabase
       .from("votes")
-      .select("id, title, deadline, category")
+      .select("id, title, deadline, category, include_guests")
       .eq("is_open", true)
       .order("created_at", { ascending: false })
       .limit(3),

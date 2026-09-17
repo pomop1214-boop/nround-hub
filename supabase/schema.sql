@@ -78,6 +78,8 @@ create table if not exists votes (
   options jsonb not null default '[]',     -- (예전 구조) 보기 목록
   -- 질문 목록: [{id,label,type:'single'|'multi'|'text',options:[]}]
   questions jsonb,
+  -- 비회원도 참여하는 투표인지
+  include_guests boolean not null default true,
   deadline timestamptz,
   is_open boolean not null default true,
   created_at timestamptz not null default now()
