@@ -5,6 +5,7 @@ import AppHeader from "@/components/AppHeader";
 import Hero from "@/components/Hero";
 import PushSubscribeButton from "@/components/PushSubscribeButton";
 import InstallButton from "@/components/InstallButton";
+import SocialLinks from "@/components/SocialLinks";
 import LogoutButton from "@/components/LogoutButton";
 import Icon from "@/components/Icon";
 import EventList, { type EventRow } from "@/components/EventList";
@@ -175,6 +176,10 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      <SocialLinks />
+
+      
 
       <LogoutButton />
     </main>

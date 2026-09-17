@@ -2,93 +2,47 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import Icon from "./Icon";
-import { answersOf, isComplete, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
+import { loadAlerts } from "@/lib/alerts";
 
 const ME_KEY = "nround_me_v1";
 
-/** 홈 상단 종 — 확인하지 않은 것이 있으면 빨간 점이 붙습니다. */
+/** 홈 상단 종 — 확인하지 않은 것이 있으면 개수가 붙습니다. */
 export default function BellButton() {
   const [count, setCount] = useState(0);
 
-  const load = useCallback(async () => {
+  const refresh = useCallback(async () => {
     const meId = localStorage.getItem(ME_KEY);
     if (!meId) return;
-
-    try {
-      const { data: me } = await supabase
-        .from("crew_members")
-        .select("notices_seen_at")
-        .eq("id", meId)
-        .maybeSingle();
-      const seenAt = me?.notices_seen_at ?? "1970-01-01";
-      let n = 0;
-
-      // 안 읽은 공지
-      const { count: noticeCount } = await supabase
-        .from("announcements")
-        .select("id", { count: "exact", head: true })
-        .gt("created_at", seenAt);
-      n += noticeCount ?? 0;
-
-      // 미응답 투표
-      const { data: vs } = await supabase.from("votes").select("*").eq("is_open", true);
-      const votes = (vs ?? []) as VoteRow[];
-      if (votes.length) {
-        const { data: rs } = await supabase
-          .from("vote_responses")
-          .select("vote_id, member_id, choice, answers")
-          .eq("member_id", meId)
-          .in(
-            "vote_id",
-            votes.map((v) => v.id)
-          );
-        const rows = (rs ?? []) as ResponseRow[];
-        n += votes.filter((v) => {
-          const mine = rows.find((r) => r.vote_id === v.id);
-          return !isComplete(answersOf(mine), questionsOf(v));
-        }).length;
-      }
-
-      // 미납 회비
-      const { data: period } = await supabase
-        .from("dues_periods")
-        .select("id, guest_dues_enabled")
-        .eq("is_current", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (period) {
-        const { data: pay } = await supabase
-          .from("dues_payments")
-          .select("paid")
-          .eq("period_id", period.id)
-          .eq("member_id", meId)
-          .maybeSingle();
-        if (!pay?.paid) n += 1;
-      }
-
-      // 미납 정산
-      const { data: items } = await supabase
-        .from("settlement_items")
-        .select("settlement_id, paid")
-        .eq("member_id", meId)
-        .eq("paid", false);
-      n += (items ?? []).length;
-
-      setCount(n);
-    } catch {
-      /* 종 배지는 실패해도 화면에 영향을 주지 않습니다 */
-    }
+    const a = await loadAlerts(meId);
+    setCount(a.total);
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    refresh();
+
+    // 알림을 확인하고 돌아오면 개수가 바로 줄도록 다시 셉니다.
+    function onFocus() {
+      refresh();
+    }
+    function onVisible() {
+      if (!document.hidden) refresh();
+    }
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+
+    // 다른 사람이 새로 올린 것도 잡히도록 1분마다 확인합니다.
+    const timer = setInterval(refresh, 60_000);
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(timer);
+    };
+  }, [refresh]);
 
   return (
-    <Link href="/alerts" className="relative" aria-label="알림">
+    <Link href="/alerts" className="relative" aria-label={count > 0 ? `알림 ${count}개` : "알림"}>
       <span style={{ color: "var(--body)" }}>
         <Icon name="bell" size={20} />
       </span>

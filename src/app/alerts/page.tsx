@@ -2,24 +2,53 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { SubHeader } from "@/components/AppHeader";
 import Icon from "@/components/Icon";
-import { answersOf, isComplete, questionsOf, type ResponseRow, type VoteRow } from "@/lib/vote";
-import { won, type Settlement, type SettlementItem } from "@/lib/settlement";
+import { emptyAlerts, loadAlerts, markNoticesSeen, type Alerts } from "@/lib/alerts";
+import { fmtDeadline } from "@/lib/vote";
 
 const ME_KEY = "nround_me_v1";
 
-type Notice = { id: string; title: string; body: string | null; created_at: string };
-type Rule = { id: string; title: string; version: number; requires_ack: boolean };
+function won(n: number) {
+  return n.toLocaleString("ko-KR") + "원";
+}
+
+function Row({
+  href,
+  icon,
+  title,
+  sub,
+}: {
+  href: string;
+  icon: string;
+  title: string;
+  sub?: string;
+}) {
+  return (
+    <Link href={href} className="nr-card nr-card-tint flex items-center gap-3 p-3.5">
+      <span className="nr-iconbox" style={{ width: 36, height: 36 }}>
+        <Icon name={icon} size={17} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13.5px] font-bold" style={{ color: "var(--ink)" }}>
+          {title}
+        </span>
+        {sub && (
+          <span className="mt-0.5 block text-[11.5px]" style={{ color: "var(--muted)" }}>
+            {sub}
+          </span>
+        )}
+      </span>
+      <span style={{ color: "var(--muted)" }}>
+        <Icon name="chevron" size={15} />
+      </span>
+    </Link>
+  );
+}
 
 export default function AlertsPage() {
+  const [a, setA] = useState<Alerts>(emptyAlerts);
   const [loading, setLoading] = useState(true);
-  const [notices, setNotices] = useState<Notice[]>([]);
-  const [votesTodo, setVotesTodo] = useState<VoteRow[]>([]);
-  const [rulesTodo, setRulesTodo] = useState<Rule[]>([]);
-  const [duesOwed, setDuesOwed] = useState<{ label: string; amount: number } | null>(null);
-  const [settleOwed, setSettleOwed] = useState<{ s: Settlement; it: SettlementItem }[]>([]);
 
   const load = useCallback(async () => {
     const meId = localStorage.getItem(ME_KEY);
@@ -27,95 +56,12 @@ export default function AlertsPage() {
       setLoading(false);
       return;
     }
-
-    const [{ data: me }, { data: vs }, { data: ns }] = await Promise.all([
-      supabase.from("crew_members").select("id, member_type, notices_seen_at").eq("id", meId).maybeSingle(),
-      supabase.from("votes").select("*").eq("is_open", true),
-      supabase.from("announcements").select("id, title, body, created_at").order("created_at", { ascending: false }).limit(20),
-    ]);
-
-    // 안 읽은 공지
-    const seen = me?.notices_seen_at ? new Date(me.notices_seen_at).getTime() : 0;
-    setNotices(((ns ?? []) as Notice[]).filter((n) => new Date(n.created_at).getTime() > seen));
-
-    // 미응답 투표
-    const voteList = (vs ?? []) as VoteRow[];
-    if (voteList.length) {
-      const { data: rs } = await supabase
-        .from("vote_responses")
-        .select("vote_id, member_id, choice, answers")
-        .eq("member_id", meId)
-        .in("vote_id", voteList.map((v) => v.id));
-      const rows = (rs ?? []) as ResponseRow[];
-      setVotesTodo(
-        voteList.filter((v) => !isComplete(answersOf(rows.find((r) => r.vote_id === v.id)), questionsOf(v)))
-      );
-    }
-
-    // 확인 필요 규정
-    const [{ data: rules }, { data: targets }, { data: acks }] = await Promise.all([
-      supabase.from("rules").select("id, title, version, requires_ack").eq("is_published", true),
-      supabase.from("rule_targets").select("rule_id, member_id"),
-      supabase.from("rule_acks").select("rule_id, version").eq("member_id", meId),
-    ]);
-    setRulesTodo(
-      ((rules ?? []) as Rule[]).filter((r) => {
-        if (!r.requires_ack) return false;
-        const tg = (targets ?? []).filter((t) => t.rule_id === r.id);
-        if (tg.length > 0 && !tg.some((t) => t.member_id === meId)) return false;
-        return !(acks ?? []).some((a) => a.rule_id === r.id && a.version === r.version);
-      })
-    );
-
-    // 미납 회비
-    const { data: periods } = await supabase
-      .from("dues_periods")
-      .select("*")
-      .eq("is_current", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    const cur = (periods ?? [])[0];
-    if (cur) {
-      const { data: pay } = await supabase
-        .from("dues_payments")
-        .select("paid, visit_count")
-        .eq("period_id", cur.id)
-        .eq("member_id", meId)
-        .maybeSingle();
-      const guest = me?.member_type === "guest";
-      const owe = guest
-        ? cur.guest_dues_enabled
-          ? (pay?.visit_count ?? 0) * cur.guest_amount
-          : 0
-        : cur.amount;
-      if (!pay?.paid && owe > 0) setDuesOwed({ label: cur.label, amount: owe });
-    }
-
-    // 미납 정산
-    const { data: its } = await supabase
-      .from("settlement_items")
-      .select("*")
-      .eq("member_id", meId)
-      .eq("paid", false);
-    const itemRows = (its ?? []) as SettlementItem[];
-    if (itemRows.length) {
-      const { data: ss } = await supabase
-        .from("settlements")
-        .select("*")
-        .in("id", itemRows.map((i) => i.settlement_id))
-        .eq("is_open", true);
-      const sList = (ss ?? []) as Settlement[];
-      setSettleOwed(
-        itemRows
-          .map((it) => ({ it, s: sList.find((x) => x.id === it.settlement_id) }))
-          .filter((x): x is { it: SettlementItem; s: Settlement } => !!x.s)
-      );
-    }
-
+    const next = await loadAlerts(meId);
+    setA(next);
     setLoading(false);
 
-    // 공지함을 열었으니 읽음 처리
-    await supabase.from("crew_members").update({ notices_seen_at: new Date().toISOString() }).eq("id", meId);
+    // 이 화면을 열었으니 공지는 읽음으로 처리합니다.
+    if (next.notices.length > 0) await markNoticesSeen(meId);
   }, []);
 
   useEffect(() => {
@@ -126,122 +72,102 @@ export default function AlertsPage() {
     return (
       <main className="nr-page">
         <SubHeader title="알림" />
-        <div className="nr-card" style={{ height: 120, opacity: 0.55 }} />
+        <div className="mt-2 flex flex-col gap-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="nr-card" style={{ height: 62, opacity: 0.55 }} />
+          ))}
+        </div>
       </main>
     );
   }
 
-  const total =
-    notices.length + votesTodo.length + rulesTodo.length + (duesOwed ? 1 : 0) + settleOwed.length;
+  if (a.total === 0) {
+    return (
+      <main className="nr-page">
+        <SubHeader title="알림" />
+        <div className="nr-empty">
+          확인할 게 없어요.
+          <br />
+          새 투표·공지·정산이 오면 여기에 표시돼요.
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="nr-page">
       <SubHeader title="알림" />
 
-      {total === 0 && (
-        <div className="nr-empty">
-          확인할 게 없어요.
-          <br />
-          새 소식이 오면 여기에 모여요.
-        </div>
-      )}
-
-      {votesTodo.length > 0 && (
+      {a.votes.length > 0 && (
         <section className="mb-5">
           <h2 className="nr-h2">응답하지 않은 투표</h2>
           <div className="mt-2 flex flex-col gap-2">
-            {votesTodo.map((v) => (
-              <Link key={v.id} href="/vote" className="nr-card nr-card-tint flex items-center gap-3 p-3.5">
-                <span className="nr-iconbox">
-                  <Icon name="chart" size={18} />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold" style={{ color: "var(--ink)" }}>
-                  {v.title}
-                </span>
-                <Icon name="chevron" size={16} />
-              </Link>
+            {a.votes.map((v) => (
+              <Row
+                key={v.id}
+                href="/vote"
+                icon="chart"
+                title={v.title}
+                sub={v.deadline ? fmtDeadline(v.deadline) : undefined}
+              />
             ))}
           </div>
         </section>
       )}
 
-      {(duesOwed || settleOwed.length > 0) && (
+      {(a.dues || a.settles.length > 0) && (
         <section className="mb-5">
-          <h2 className="nr-h2">내지 않은 금액</h2>
+          <h2 className="nr-h2">미납</h2>
           <div className="mt-2 flex flex-col gap-2">
-            {duesOwed && (
-              <Link href="/me" className="nr-card nr-card-tint flex items-center gap-3 p-3.5">
-                <span className="nr-iconbox">
-                  <Icon name="wallet" size={18} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-bold" style={{ color: "var(--ink)" }}>
-                    {duesOwed.label}
-                  </span>
-                  <span className="text-[11.5px]" style={{ color: "var(--red-deep)" }}>
-                    {won(duesOwed.amount)}
-                  </span>
-                </span>
-                <Icon name="chevron" size={16} />
-              </Link>
+            {a.dues && (
+              <Row
+                href="/me"
+                icon="wallet"
+                title={a.dues.label}
+                sub={`${won(a.dues.amount)}${a.dues.due_date ? ` · ${a.dues.due_date} 까지` : ""}`}
+              />
             )}
-            {settleOwed.map(({ s, it }) => (
-              <Link key={it.id} href="/me" className="nr-card nr-card-tint flex items-center gap-3 p-3.5">
-                <span className="nr-iconbox">
-                  <Icon name="wallet" size={18} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-bold" style={{ color: "var(--ink)" }}>
-                    {s.title}
-                  </span>
-                  <span className="text-[11.5px]" style={{ color: "var(--red-deep)" }}>
-                    {won(it.amount)}
-                    {it.claimed_at ? " · 확인 대기중" : ""}
-                  </span>
-                </span>
-                <Icon name="chevron" size={16} />
-              </Link>
+            {a.settles.map((s) => (
+              <Row
+                key={s.id}
+                href="/me"
+                icon="wallet"
+                title={s.title}
+                sub={`${won(s.amount)}${s.due_date ? ` · ${s.due_date} 까지` : ""}`}
+              />
             ))}
           </div>
         </section>
       )}
 
-      {rulesTodo.length > 0 && (
+      {a.rules.length > 0 && (
         <section className="mb-5">
           <h2 className="nr-h2">확인하지 않은 규정</h2>
           <div className="mt-2 flex flex-col gap-2">
-            {rulesTodo.map((r) => (
-              <Link key={r.id} href="/rules" className="nr-card nr-card-tint flex items-center gap-3 p-3.5">
-                <span className="nr-iconbox">
-                  <Icon name="doc" size={18} />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold" style={{ color: "var(--ink)" }}>
-                  {r.title}
-                </span>
-                <Icon name="chevron" size={16} />
-              </Link>
+            {a.rules.map((r) => (
+              <Row key={r.id} href="/rules" icon="doc" title={r.title} />
             ))}
           </div>
         </section>
       )}
 
-      {notices.length > 0 && (
-        <section>
+      {a.notices.length > 0 && (
+        <section className="mb-5">
           <h2 className="nr-h2">새 공지</h2>
           <div className="mt-2 flex flex-col gap-2">
-            {notices.map((n) => (
-              <div key={n.id} className="nr-card p-3.5">
-                <p className="text-[13.5px] font-bold" style={{ color: "var(--ink)" }}>
-                  {n.title}
-                </p>
-                {n.body && (
-                  <p className="mt-1 whitespace-pre-wrap text-[12.5px] leading-relaxed" style={{ color: "#4a3f39" }}>
-                    {n.body}
-                  </p>
-                )}
-              </div>
+            {a.notices.map((n) => (
+              <Row
+                key={n.id}
+                href="/notices"
+                icon="bell"
+                title={n.title}
+                sub={n.created_at.slice(5, 10).replace("-", "/")}
+              />
             ))}
           </div>
+          <p className="mt-2 text-[11.5px]" style={{ color: "var(--muted)" }}>
+            이 화면을 열었으니 공지는 읽음으로 처리했어요.
+          </p>
         </section>
       )}
     </main>
