@@ -224,3 +224,16 @@ body {
     animation: none;
   }
 }
+
+@keyframes nr-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.nr-cake {
+  animation: nr-float 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nr-cake { animation: none; }
+}

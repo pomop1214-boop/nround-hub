@@ -148,5 +148,47 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  /* ── 생일 ── */
+  // 한국 시간 기준 오늘 날짜
+  const today = new Date(now + KST);
+  const todayKey = today.toISOString().slice(0, 10);   // YYYY-MM-DD
+  const mmdd = todayKey.slice(5);                       // MM-DD
+
+  const { data: birthdays } = await supabaseAdmin
+    .from("crew_members")
+    .select("id, name, birth_date")
+    .eq("active", true)
+    .not("birth_date", "is", null);
+
+  const todaysBirthdays = (birthdays ?? []).filter(
+    (m) => String(m.birth_date).slice(5) === mmdd
+  );
+
+  if (todaysBirthdays.length > 0) {
+    const { data: leads } = await supabaseAdmin
+      .from("crew_members")
+      .select("id")
+      .eq("role", "lead");
+    const leadIds = (leads ?? []).map((l) => l.id);
+
+    for (const m of todaysBirthdays) {
+      // 하루에 한 번만 보냅니다.
+      if (await alreadySent("birthday", m.id, todayKey)) continue;
+
+      if (leadIds.length > 0) {
+        await sendPush(
+          {
+            title: `🎂 오늘 ${m.name} 님 생일이에요`,
+            body: "크루방에 축하 메시지 남겨주세요.",
+            url: "/admin",
+          },
+          leadIds
+        );
+      }
+      await markSent("birthday", m.id, todayKey);
+      out.push(`birthday/${m.name}`);
+    }
+  }
+
   return NextResponse.json({ ok: true, sent: out });
 }

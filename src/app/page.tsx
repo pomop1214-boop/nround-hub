@@ -6,6 +6,7 @@ import Hero from "@/components/Hero";
 import PushSubscribeButton from "@/components/PushSubscribeButton";
 import InstallButton from "@/components/InstallButton";
 import SocialLinks from "@/components/SocialLinks";
+import BirthdayBanner from "@/components/BirthdayBanner";
 import LogoutButton from "@/components/LogoutButton";
 import Icon from "@/components/Icon";
 import EventList, { type EventRow } from "@/components/EventList";
@@ -45,6 +46,21 @@ export default async function HomePage() {
       .limit(2),
   ]);
 
+  // 오늘이 내 생일인지 확인합니다(생일은 당사자와 운영장만 봅니다).
+  let birthdayName: string | null = null;
+  if (session) {
+    const { data: me } = await supabase
+      .from("crew_members")
+      .select("name, birth_date")
+      .eq("id", session.id)
+      .maybeSingle();
+
+    if (me?.birth_date) {
+      const kstToday = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(5, 10);
+      if (String(me.birth_date).slice(5) === kstToday) birthdayName = me.name;
+    }
+  }
+
   // 버스킹은 진행 중인 회차가 있을 때만 홈에 띄웁니다.
   const { data: buskingRound } = await supabase
     .from("busking_rounds")
@@ -70,7 +86,7 @@ export default async function HomePage() {
     <main className="nr-page">
       <AppHeader name={session?.name} />
 
-      <Hero />
+      {birthdayName ? <BirthdayBanner name={birthdayName} /> : <Hero />}
 
       <div className="mt-4 flex flex-col gap-2">
         <PushSubscribeButton />

@@ -65,9 +65,15 @@ export async function POST(req: NextRequest) {
     let memberId = existing?.id as string | undefined;
 
     if (!memberId) {
+      // 요청에 적힌 생년월일도 함께 저장합니다(형식이 맞을 때만).
+      const birth =
+        typeof reqRow.birth_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(reqRow.birth_date)
+          ? reqRow.birth_date
+          : null;
+
       const { data: created, error: insErr } = await supabaseAdmin
         .from("crew_members")
-        .insert({ name, member_type: "member", active: true })
+        .insert({ name, member_type: "member", active: true, birth_date: birth })
         .select("id")
         .single();
       if (insErr || !created) {

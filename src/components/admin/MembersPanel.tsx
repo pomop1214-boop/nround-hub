@@ -10,7 +10,13 @@ type Member = {
   active: boolean;
   member_type: string;
   role: string | null;
+  birth_date: string | null;
 };
+
+/** 화면에는 월·일만 보여줍니다. */
+function mmdd(d: string | null) {
+  return d ? `${d.slice(5, 7)}.${d.slice(8, 10)}` : null;
+}
 
 const ROLES: { key: string; label: string }[] = [
   { key: "lead", label: "운영장" },
@@ -52,6 +58,8 @@ export default function MembersPanel() {
   const [pwValue, setPwValue] = useState("");
   const [pwSaved, setPwSaved] = useState<{ name: string; pw: string } | null>(null);
   const [roleFor, setRoleFor] = useState<string | null>(null);
+  const [birthFor, setBirthFor] = useState<string | null>(null);
+  const [birthValue, setBirthValue] = useState("");
 
   const pin = typeof window !== "undefined" ? localStorage.getItem("nround-admin-pin") ?? "" : "";
 
@@ -100,6 +108,22 @@ export default function MembersPanel() {
     if (!confirm(`${m.name} 님을 탈퇴 처리할까요?\n투표·회비·규정 동의 기록도 함께 지워지고 되돌릴 수 없어요.`))
       return;
     await supabase.from("crew_members").delete().eq("id", m.id);
+    load();
+  }
+
+  async function saveBirth(m: Member) {
+    const v = birthValue.trim();
+    if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      return setError("생년월일은 1999-09-17 형식으로 적어주세요.");
+    }
+    const { error: e } = await supabase
+      .from("crew_members")
+      .update({ birth_date: v || null })
+      .eq("id", m.id);
+    if (e) return setError("저장하지 못했어요.");
+    setError("");
+    setBirthFor(null);
+    setBirthValue("");
     load();
   }
 
@@ -179,6 +203,9 @@ export default function MembersPanel() {
                     {roleLabel(m.role)}
                   </span>
                 )}
+                {mmdd(m.birth_date) && (
+                  <span className="nr-badge nr-badge-tint">🎂 {mmdd(m.birth_date)}</span>
+                )}
                 {m.member_type === "guest" && <span className="nr-badge nr-badge-tint">비회원</span>}
                 <span
                   className="text-[10.5px] font-bold"
@@ -210,6 +237,17 @@ export default function MembersPanel() {
                   <Icon name="crown" size={12} />
                   운영진 임명
                 </button>
+                <button
+                  onClick={() => {
+                    setBirthFor(birthFor === m.id ? null : m.id);
+                    setBirthValue(m.birth_date ?? "");
+                    setRoleFor(null);
+                    setPwFor(null);
+                  }}
+                  className="nr-btn-sm"
+                >
+                  {m.birth_date ? "생일 수정" : "생일 입력"}
+                </button>
                 <button onClick={() => toggleType(m)} className="nr-btn-sm">
                   {m.member_type === "guest" ? "회원으로 전환" : "비회원으로 전환"}
                 </button>
@@ -221,6 +259,22 @@ export default function MembersPanel() {
                   탈퇴
                 </button>
               </div>
+
+              {birthFor === m.id && (
+                <div className="mt-2 flex gap-1.5">
+                  <input
+                    autoFocus
+                    type="date"
+                    value={birthValue}
+                    onChange={(e) => setBirthValue(e.target.value)}
+                    className="nr-input flex-1"
+                    style={{ padding: "8px 12px", fontSize: 14 }}
+                  />
+                  <button onClick={() => saveBirth(m)} className="nr-btn-sm nr-btn-sm-solid">
+                    저장
+                  </button>
+                </div>
+              )}
 
               {roleFor === m.id && (
                 <div
@@ -306,6 +360,9 @@ export default function MembersPanel() {
         비밀번호는 저장하는 순간 암호화돼서, 나중에 다시 열어볼 수 없어요. 잊어버리면 새로 정해주면 됩니다.
         <br />
         위의 회원 / 비회원 버튼으로 목록을 바꿔볼 수 있어요. 새로 추가할 때도 선택한 쪽으로 들어가요.
+        <br />
+        생일은 가입 요청을 승인할 때 자동으로 들어와요. 비어 있으면 여기서 직접 넣어주세요.
+        생일은 본인과 운영장만 볼 수 있어요.
         <br />
         탈퇴는 투표·회비·규정 기록까지 함께 지워지고 되돌릴 수 없어요.
       </p>
