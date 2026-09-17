@@ -13,8 +13,9 @@ export default function AppHeader({ name }: { name?: string }) {
         </span>
       </Link>
 
-      <div className="flex items-center gap-[7px]">
-        <SocialLinks />
+      <div className="flex items-center gap-2">
+        <SocialLinks size={26} divider />
+        <span style={{ width: 4 }} />
         <BellButton />
         <Link
           href="/me"
