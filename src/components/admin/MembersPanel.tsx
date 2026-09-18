@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/Icon";
+import { deviceIcon, deviceLabel } from "@/lib/device";
 
 type Member = {
   id: string;
@@ -38,6 +39,12 @@ export function byRoleThenName<T extends { role: string | null; name: string }>(
   return a.name.localeCompare(b.name, "ko");
 }
 type CredRow = { member_id: string; updated_at: string };
+type PushRow = {
+  member_id: string;
+  device: string | null;
+  browser: string | null;
+  updated_at: string | null;
+};
 
 function randomPassword() {
   // 헷갈리는 글자(0/O, 1/l)는 뺐어요.
@@ -54,6 +61,7 @@ export default function MembersPanel() {
   const [error, setError] = useState("");
 
   const [creds, setCreds] = useState<CredRow[]>([]);
+  const [pushes, setPushes] = useState<PushRow[]>([]);
   const [pwFor, setPwFor] = useState<string | null>(null);
   const [pwValue, setPwValue] = useState("");
   const [pwSaved, setPwSaved] = useState<{ name: string; pw: string } | null>(null);
@@ -78,6 +86,19 @@ export default function MembersPanel() {
       }
     } catch {
       /* 비밀번호 현황은 못 불러와도 명단은 보이게 둡니다 */
+    }
+
+    // 누가 어떤 기기에서 알림을 켰는지
+    try {
+      const res = await fetch(
+        `/api/push-status?pin=${encodeURIComponent(localStorage.getItem("nround-admin-pin") ?? "")}`
+      );
+      if (res.ok) {
+        const json = await res.json();
+        setPushes(json.subs ?? []);
+      }
+    } catch {
+      /* 알림 현황은 없어도 명단은 보이게 둡니다 */
     }
   }, []);
 
@@ -152,6 +173,16 @@ export default function MembersPanel() {
   }
 
   const hasPassword = (id: string) => creds.some((c) => c.member_id === id);
+  const devicesOf = (id: string) => pushes.filter((p) => p.member_id === id);
+
+  function copyPushTag() {
+    const off = members.filter((m) => devicesOf(m.id).length === 0);
+    if (off.length === 0) return;
+    navigator.clipboard.writeText(
+      off.map((m) => "@" + m.name).join(" ") +
+        "\n허브 홈에서 '공지 알림 켜기'를 눌러주세요. 투표·회비 알림을 받으려면 필요해요!"
+    );
+  }
   const shown = members.filter((m) => m.member_type === newType).sort(byRoleThenName);
   const memberCount = members.filter((m) => m.member_type === "member").length;
   const guestCount = members.filter((m) => m.member_type === "guest").length;
@@ -161,6 +192,27 @@ export default function MembersPanel() {
       <p className="nr-more">
         회원 {memberCount}명 · 비회원 {guestCount}명
       </p>
+
+      {(() => {
+        const off = members.filter((m) => devicesOf(m.id).length === 0);
+        if (off.length === 0) return null;
+        return (
+          <div className="nr-card nr-card-tint mt-2 p-3">
+            <p className="text-[12.5px] font-bold" style={{ color: "var(--ink)" }}>
+              알림을 안 켠 크루원 {off.length}명
+            </p>
+            <p className="mt-1 text-[11.5px]" style={{ color: "var(--muted)" }}>
+              {off.map((m) => m.name).join(", ")}
+            </p>
+            <button onClick={copyPushTag} className="nr-btn-sm mt-2">
+              카톡 태그 문구 복사
+            </button>
+            <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: "var(--muted)" }}>
+              알림은 본인이 직접 켜야 해요. 대신 켜줄 수는 없어요.
+            </p>
+          </div>
+        );
+      })()}
 
       <form onSubmit={add} className="mt-2 flex flex-col gap-2">
         <div className="flex gap-2">
@@ -213,7 +265,26 @@ export default function MembersPanel() {
                 >
                   {has ? "비번 있음" : "비번 없음"}
                 </span>
+                {devicesOf(m.id).length > 0 ? (
+                  <span className="nr-badge" style={{ background: "var(--mint)", color: "#1F6B73" }}>
+                    🔔 {devicesOf(m.id).length}대
+                  </span>
+                ) : (
+                  <span className="nr-badge nr-badge-tint">알림 꺼짐</span>
+                )}
               </div>
+
+              {devicesOf(m.id).length > 0 && (
+                <div className="mt-1.5 flex flex-col gap-0.5">
+                  {devicesOf(m.id).map((d, i) => (
+                    <p key={i} className="text-[11px]" style={{ color: "var(--muted)" }}>
+                      {deviceIcon(d.device)} {deviceLabel(d.device)}
+                      {d.browser ? ` · ${d.browser}` : ""}
+                      {d.updated_at ? ` · ${d.updated_at.slice(5, 10).replace("-", "/")}` : ""}
+                    </p>
+                  ))}
+                </div>
+              )}
 
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <button

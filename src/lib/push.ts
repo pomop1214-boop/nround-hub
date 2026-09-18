@@ -22,10 +22,13 @@ export async function subscribeToPush() {
     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
   });
 
+  const { detectDevice } = await import("@/lib/device");
+  const info = detectDevice();
+
   await fetch("/api/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(subscription),
+    body: JSON.stringify({ ...subscription.toJSON(), ...info }),
   });
 
   return subscription;
