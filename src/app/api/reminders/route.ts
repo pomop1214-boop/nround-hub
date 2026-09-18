@@ -149,6 +149,42 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  /* ── 정산 ── */
+  const { data: settles } = await supabaseAdmin
+    .from("settlements")
+    .select("id, title, due_date")
+    .eq("is_open", true)
+    .not("due_date", "is", null);
+
+  for (const st of settles ?? []) {
+    // 입금 기한은 그날 밤 11시 59분(한국 시간)으로 봅니다.
+    const [sy, sm, sd] = String(st.due_date).split("-").map(Number);
+    const dl = Date.UTC(sy, sm - 1, sd, 23, 59) - KST;
+    if (dl <= now) continue;
+
+    const due = slotsFor(dl).filter((x) => x.at <= now && x.at > floor);
+    if (due.length === 0) continue;
+
+    const { data: items } = await supabaseAdmin
+      .from("settlement_items")
+      .select("member_id, paid")
+      .eq("settlement_id", st.id);
+
+    const unpaid = (items ?? []).filter((i) => !i.paid).map((i) => i.member_id);
+
+    for (const slot of due) {
+      if (await alreadySent("settle", st.id, slot.key)) continue;
+      if (unpaid.length > 0) {
+        await sendPush(
+          { title: `정산 · ${st.title}`, body: `${slot.label} 아직 입금 전이에요.`, url: "/me" },
+          unpaid
+        );
+      }
+      await markSent("settle", st.id, slot.key);
+      out.push(`settle/${st.title}/${slot.key} → ${unpaid.length}명`);
+    }
+  }
+
   /* ── 생일 ── */
   // 한국 시간 기준 오늘 날짜
   const today = new Date(now + KST);
