@@ -5,6 +5,33 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
+/** 이미 켜져 있는 구독을 서버에 다시 등록합니다(누구 기기인지 연결). */
+export async function syncPushSubscription() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  if (Notification.permission !== "granted") return false;
+
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = await reg?.pushManager.getSubscription();
+  if (!sub) return false;
+
+  const { detectDevice } = await import("@/lib/device");
+
+  try {
+    const res = await fetch("/api/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...sub.toJSON(), ...detectDevice() }),
+    });
+    if (!res.ok) return false;
+
+    // 로그인이 풀리면 로그인 화면(HTML)이 돌아오므로 내용까지 확인합니다.
+    const data = await res.json().catch(() => null);
+    return !!data?.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function subscribeToPush() {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     throw new Error(
@@ -25,11 +52,16 @@ export async function subscribeToPush() {
   const { detectDevice } = await import("@/lib/device");
   const info = detectDevice();
 
-  await fetch("/api/subscribe", {
+  const res = await fetch("/api/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...subscription.toJSON(), ...info }),
   });
+
+  const data = res.ok ? await res.json().catch(() => null) : null;
+  if (!data?.ok) {
+    throw new Error("알림을 등록하지 못했어요. 로그인 상태를 확인하고 다시 눌러주세요.");
+  }
 
   return subscription;
 }

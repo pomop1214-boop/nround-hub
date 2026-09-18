@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { subscribeToPush } from "@/lib/push";
+import { subscribeToPush, syncPushSubscription } from "@/lib/push";
 import Icon from "./Icon";
 
 type State = "checking" | "off" | "on" | "loading" | "error" | "blocked";
@@ -33,7 +33,25 @@ export default function PushSubscribeButton() {
       try {
         const reg = await navigator.serviceWorker.getRegistration();
         const sub = await reg?.pushManager.getSubscription();
-        if (alive) setState(sub ? "on" : "off");
+        if (!alive) return;
+
+        if (!sub) {
+          setState("off");
+          return;
+        }
+
+        // 서버에 기록이 없거나 다른 사람 이름으로 남아 있을 수 있어
+        // 화면을 열 때마다 내 계정으로 다시 연결합니다.
+        const synced = await syncPushSubscription();
+        if (!alive) return;
+
+        if (synced) {
+          setState("on");
+        } else {
+          // 브라우저에는 켜져 있는데 서버에 저장이 안 된 상태입니다.
+          setState("off");
+          setMessage("알림이 서버에 등록되지 않았어요. 한 번 더 눌러주세요.");
+        }
       } catch {
         if (alive) setState("off");
       }
@@ -115,6 +133,12 @@ export default function PushSubscribeButton() {
         <span className="flex-1 text-left text-[13px] font-bold">공지 알림 켜기</span>
         <span className="text-[12px] font-semibold">{state === "loading" ? "여는 중" : "켜기"}</span>
       </button>
+
+      {message && state !== "error" && (
+        <p className="mt-1.5 px-1 text-[12px] leading-relaxed" style={{ color: "var(--muted)" }}>
+          {message}
+        </p>
+      )}
 
       {state === "error" && (
         <p className="mt-1.5 px-1 text-[12px] leading-relaxed" style={{ color: "var(--red-deep)" }}>

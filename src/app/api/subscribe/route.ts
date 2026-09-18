@@ -12,18 +12,25 @@ export async function POST(req: NextRequest) {
     browser?: string;
   };
 
-  const { error } = await supabaseAdmin.from("push_subscriptions").upsert(
-    {
-      endpoint: sub.endpoint,
-      subscription: sub,
-      member_id: session?.id ?? null,
-      device: device ?? null,
-      browser: browser ?? null,
-      updated_at: new Date().toISOString(),
-    },
+  const base = {
+    endpoint: sub.endpoint,
+    subscription: sub,
+    member_id: session?.id ?? null,
+  };
+
+  let { error } = await supabaseAdmin.from("push_subscriptions").upsert(
+    { ...base, device: device ?? null, browser: browser ?? null, updated_at: new Date().toISOString() },
     { onConflict: "endpoint" }
   );
 
+  // 기기 컬럼이 아직 없는 데이터베이스에서도 알림은 켜지도록 합니다.
+  if (error) {
+    const retry = await supabaseAdmin
+      .from("push_subscriptions")
+      .upsert(base, { onConflict: "endpoint" });
+    error = retry.error;
+  }
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, linked: !!session?.id });
 }
