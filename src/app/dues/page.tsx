@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { SubHeader } from "@/components/AppHeader";
 import Icon from "@/components/Icon";
+import { CREW_ACCOUNT } from "@/lib/account";
 
 const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN || "1214";
 const ME_KEY = "nround_me_v1";
-const ACCOUNT = { bank: "카카오뱅크", number: "3333315776031", label: "N.ROUND 모임통장" };
+
 
 type Member = {
   id: string;
@@ -54,7 +55,7 @@ function AccountCard() {
   const [copied, setCopied] = useState(false);
 
   function copy() {
-    navigator.clipboard?.writeText(ACCOUNT.number).then(() => {
+    navigator.clipboard?.writeText(CREW_ACCOUNT.number).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     });
@@ -64,9 +65,9 @@ function AccountCard() {
     <div className="nr-card mt-4 p-4">
       <p className="nr-h2">모임 계좌</p>
       <p className="mt-2 text-[12.5px]" style={{ color: "var(--muted)" }}>
-        {ACCOUNT.bank} · {ACCOUNT.label}
+        {CREW_ACCOUNT.bank} · {CREW_ACCOUNT.holder}
       </p>
-      <p className="mt-0.5 text-[19px] font-bold" style={{ color: "var(--ink)" }}>{ACCOUNT.number}</p>
+      <p className="mt-0.5 text-[19px] font-bold" style={{ color: "var(--ink)" }}>{CREW_ACCOUNT.number}</p>
       <button
         onClick={copy}
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13.5px] font-bold"

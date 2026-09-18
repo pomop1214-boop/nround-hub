@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { SubHeader } from "@/components/AppHeader";
 import Icon from "@/components/Icon";
+import AccountCard from "@/components/AccountCard";
 import EventList, { type EventRow } from "@/components/EventList";
 import { won as wonS, type Settlement, type SettlementItem } from "@/lib/settlement";
 import {
@@ -416,6 +417,17 @@ export default function MyPage() {
                   <p className="mt-1 text-[11.5px]" style={{ color: "var(--muted)" }}>
                     {s.due_date} 까지
                   </p>
+                )}
+
+                {!it.paid && s.account_number && (
+                  <div className="mt-2.5">
+                    <AccountCard
+                      compact
+                      bank={s.account_bank}
+                      number={s.account_number}
+                      holder={s.account_holder}
+                    />
+                  </div>
                 )}
 
                 {!it.paid && !it.claimed_at && (

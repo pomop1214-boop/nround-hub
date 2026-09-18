@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Icon from "@/components/Icon";
 import { won, type Settlement, type SettlementItem } from "@/lib/settlement";
+import { CREW_ACCOUNT } from "@/lib/account";
 
 type Member = { id: string; name: string; role: string | null };
 
@@ -31,6 +32,9 @@ export default function SettlementsPanel() {
   /** 사람별 금액. 비어 있거나 0이면 이번 정산에서 빠집니다. */
   const [amountByMember, setAmountByMember] = useState<Record<string, string>>({});
   const [sameAmount, setSameAmount] = useState("");
+  const [bank, setBank] = useState("");
+  const [accNo, setAccNo] = useState("");
+  const [holder, setHolder] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -85,6 +89,9 @@ export default function SettlementsPanel() {
         memo: memo.trim() || null,
         due_date: dueDate || null,
         created_by: localStorage.getItem("nround_me_v1"),
+        account_bank: bank.trim() || null,
+        account_number: accNo.replace(/[^0-9-]/g, "") || null,
+        account_holder: holder.trim() || null,
       })
       .select("id")
       .single();
@@ -125,6 +132,9 @@ export default function SettlementsPanel() {
     setTitle("");
     setMemo("");
     setDueDate("");
+    setBank("");
+    setAccNo("");
+    setHolder("");
     setAmountByMember({});
     setSameAmount("");
     setError("");
@@ -210,6 +220,48 @@ export default function SettlementsPanel() {
             onChange={(e) => setDueDate(e.target.value)}
             className="nr-input"
           />
+
+          <div className="mt-1 flex items-center gap-2">
+            <p className="nr-h2 flex-1">입금 계좌</p>
+            <button
+              type="button"
+              onClick={() => {
+                setBank(CREW_ACCOUNT.bank);
+                setAccNo(CREW_ACCOUNT.number);
+                setHolder(CREW_ACCOUNT.holder);
+              }}
+              className="nr-btn-sm"
+            >
+              크루 계좌 넣기
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={bank}
+              onChange={(e) => setBank(e.target.value)}
+              placeholder="은행"
+              className="nr-input"
+              style={{ width: 96, padding: "8px 10px", fontSize: 13 }}
+            />
+            <input
+              value={accNo}
+              onChange={(e) => setAccNo(e.target.value)}
+              inputMode="numeric"
+              placeholder="계좌번호"
+              className="nr-input flex-1"
+              style={{ padding: "8px 10px", fontSize: 13 }}
+            />
+          </div>
+          <input
+            value={holder}
+            onChange={(e) => setHolder(e.target.value)}
+            placeholder="예금주 (선택)"
+            className="nr-input"
+            style={{ padding: "8px 10px", fontSize: 13 }}
+          />
+          <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+            뒤풀이비처럼 개인이 먼저 냈다면 본인 계좌를 넣으세요. 비우면 계좌가 표시되지 않아요.
+          </p>
 
           <div className="mt-1 flex items-center gap-2">
             <p className="nr-h2 flex-1">사람별 금액</p>
@@ -315,6 +367,11 @@ export default function SettlementsPanel() {
               {s.memo && (
                 <p className="mt-1 text-[11.5px]" style={{ color: "var(--muted)" }}>
                   {s.memo}
+                </p>
+              )}
+              {s.account_number && (
+                <p className="mt-1 text-[11.5px]" style={{ color: "var(--muted)" }}>
+                  {[s.account_bank, s.account_number, s.account_holder].filter(Boolean).join(" · ")}
                 </p>
               )}
 
