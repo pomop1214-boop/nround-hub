@@ -10,6 +10,7 @@ import {
   fmtDeadline,
   isComplete,
   isTarget,
+  isVotable,
   questionsOf,
   stopsAt,
   visibleQuestions,
@@ -47,10 +48,11 @@ export default function VotePage() {
           : Promise.resolve({ data: null }),
       ]);
 
-      // 회원만 참여하는 투표는 비회원에게 보이지 않습니다.
-      const list = ((vs ?? []) as VoteRow[]).filter((v) =>
-        isTarget(v, { id: memberId ?? "", member_type: me?.member_type })
-      );
+      // 회원만 참여하는 투표는 비회원에게 보이지 않고,
+      // 마감 시간이 지난 투표도 목록에서 빠집니다.
+      const list = ((vs ?? []) as VoteRow[])
+        .filter((v) => isTarget(v, { id: memberId ?? "", member_type: me?.member_type }))
+        .filter(isVotable);
       setVotes(list);
 
       if (memberId && list.length) {

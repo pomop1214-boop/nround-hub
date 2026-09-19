@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { subscribeToPush, syncPushSubscription } from "@/lib/push";
+import { subscribeToPush, syncPushSubscription, unsubscribeFromPush } from "@/lib/push";
 import Icon from "./Icon";
 
 type State = "checking" | "off" | "on" | "loading" | "error" | "blocked";
@@ -70,6 +70,18 @@ export default function PushSubscribeButton() {
     };
   }, []);
 
+  async function turnOff() {
+    setState("loading");
+    setMessage("");
+    try {
+      await unsubscribeFromPush();
+      setState("off");
+    } catch {
+      setState("error");
+      setMessage("끄지 못했어요. 잠시 후 다시 시도해주세요.");
+    }
+  }
+
   async function turnOn() {
     setState("loading");
     try {
@@ -97,7 +109,14 @@ export default function PushSubscribeButton() {
         }}
       >
         <Icon name="check" size={17} />
-        <span className="text-[13px] font-bold">알림 켜짐 · 새 소식이 오면 알려드려요</span>
+        <span className="flex-1 text-[13px] font-bold">알림 켜짐</span>
+        <button
+          onClick={turnOff}
+          className="rounded-lg px-2.5 py-1 text-[11.5px] font-bold"
+          style={{ background: "#fff", border: "1px solid var(--mint)", color: "var(--mint-text)" }}
+        >
+          끄기
+        </button>
       </div>
     );
   }

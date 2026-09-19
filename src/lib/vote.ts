@@ -117,6 +117,17 @@ export function newQuestionId() {
   return "q" + Math.random().toString(36).slice(2, 8);
 }
 
+/** 마감 시간이 지났는지 */
+export function isExpired(v: VoteRow) {
+  if (!v.deadline) return false;
+  return new Date(v.deadline).getTime() <= Date.now();
+}
+
+/** 지금 응답할 수 있는 투표인지 (마감 시간이 지나면 닫힌 것으로 봅니다) */
+export function isVotable(v: VoteRow) {
+  return v.is_open && !isExpired(v);
+}
+
 export function fmtDeadline(iso: string) {
   const d = new Date(iso);
   const wd = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];

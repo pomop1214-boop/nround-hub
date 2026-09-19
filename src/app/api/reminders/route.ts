@@ -60,6 +60,22 @@ export async function GET(req: NextRequest) {
     .eq("active", true);
   const members = ms ?? [];
 
+  /* ── 마감 시간이 지난 투표 자동 닫기 ── */
+  const { data: expired } = await supabaseAdmin
+    .from("votes")
+    .select("id, title, deadline")
+    .eq("is_open", true)
+    .not("deadline", "is", null)
+    .lte("deadline", new Date(now).toISOString());
+
+  if ((expired ?? []).length > 0) {
+    await supabaseAdmin
+      .from("votes")
+      .update({ is_open: false })
+      .in("id", (expired ?? []).map((v) => v.id));
+    (expired ?? []).forEach((v) => out.push(`closed/${v.title}`));
+  }
+
   /* ── 투표 ── */
   const { data: vs } = await supabaseAdmin
     .from("votes")

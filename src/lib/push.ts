@@ -5,6 +5,25 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
+/** 이 기기의 알림을 끕니다. */
+export async function unsubscribeFromPush() {
+  if (!("serviceWorker" in navigator)) return;
+
+  const reg = await navigator.serviceWorker.getRegistration();
+  const sub = await reg?.pushManager.getSubscription();
+  if (!sub) return;
+
+  const endpoint = sub.endpoint;
+
+  // 브라우저 쪽 구독을 먼저 해제하고, 서버 기록도 지웁니다.
+  await sub.unsubscribe().catch(() => {});
+  await fetch("/api/unsubscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint }),
+  }).catch(() => {});
+}
+
 /** 이미 켜져 있는 구독을 서버에 다시 등록합니다(누구 기기인지 연결). */
 export async function syncPushSubscription() {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;

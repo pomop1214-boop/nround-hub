@@ -6,7 +6,9 @@ import { supabase } from "@/lib/supabase";
 import Icon from "@/components/Icon";
 import {
   answersOf,
+  isExpired,
   isTarget,
+  isVotable,
   fmtDeadline,
   newQuestionId,
   pickedBy,
@@ -186,7 +188,12 @@ export default function VotesPanel() {
   }
 
   async function setOpen(v: VoteRow, open: boolean) {
-    await supabase.from("votes").update({ is_open: open }).eq("id", v.id);
+    // 마감 시간이 지난 투표를 다시 열면 곧바로 자동으로 닫히므로,
+    // 마감을 비워 두고 열어줍니다(새 마감은 수정에서 정하면 됩니다).
+    const patch: { is_open: boolean; deadline?: null } =
+      open && isExpired(v) ? { is_open: true, deadline: null } : { is_open: open };
+
+    await supabase.from("votes").update(patch).eq("id", v.id);
     load();
   }
 
@@ -438,8 +445,8 @@ export default function VotesPanel() {
           return (
             <div key={v.id} className="nr-card p-4">
               <div className="flex items-center gap-2">
-                <span className={"nr-badge " + (v.is_open ? "nr-badge-live" : "nr-badge-tint")}>
-                  {v.is_open ? "진행중" : "마감"}
+                <span className={"nr-badge " + (isVotable(v) ? "nr-badge-live" : "nr-badge-tint")}>
+                  {isVotable(v) ? "진행중" : "마감"}
                 </span>
                 <span className="nr-badge nr-badge-tint">{v.category}</span>
                 {v.deadline && (
@@ -483,8 +490,8 @@ export default function VotesPanel() {
                 <button onClick={() => copySummary(v)} className="nr-btn-sm">
                   집계 복사
                 </button>
-                <button onClick={() => setOpen(v, !v.is_open)} className="nr-btn-sm">
-                  {v.is_open ? "마감하기" : "다시 열기"}
+                <button onClick={() => setOpen(v, !isVotable(v))} className="nr-btn-sm">
+                  {isVotable(v) ? "마감하기" : "다시 열기"}
                 </button>
                 <button
                   onClick={() => remove(v)}
