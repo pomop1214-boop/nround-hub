@@ -175,6 +175,19 @@ export default function MembersPanel() {
   const hasPassword = (id: string) => creds.some((c) => c.member_id === id);
   const devicesOf = (id: string) => pushes.filter((p) => p.member_id === id);
 
+  /** 기기 정보가 있는 것만, 같은 기기는 한 번만 보여줍니다. */
+  const knownDevicesOf = (id: string) => {
+    const seen = new Set<string>();
+    return devicesOf(id)
+      .filter((d) => d.device)
+      .filter((d) => {
+        const key = `${d.device}|${d.browser ?? ""}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+
   function copyPushTag() {
     const off = members.filter((m) => devicesOf(m.id).length === 0);
     if (off.length === 0) return;
@@ -267,7 +280,8 @@ export default function MembersPanel() {
                 </span>
                 {devicesOf(m.id).length > 0 ? (
                   <span className="nr-badge" style={{ background: "var(--mint)", color: "#1F6B73" }}>
-                    🔔 {devicesOf(m.id).length}대
+                    🔔 켜짐
+                    {knownDevicesOf(m.id).length > 1 ? ` ${knownDevicesOf(m.id).length}대` : ""}
                   </span>
                 ) : (
                   <span className="nr-badge nr-badge-tint">알림 꺼짐</span>
@@ -276,13 +290,19 @@ export default function MembersPanel() {
 
               {devicesOf(m.id).length > 0 && (
                 <div className="mt-1.5 flex flex-col gap-0.5">
-                  {devicesOf(m.id).map((d, i) => (
+                  {knownDevicesOf(m.id).map((d, i) => (
                     <p key={i} className="text-[11px]" style={{ color: "var(--muted)" }}>
                       {deviceIcon(d.device)} {deviceLabel(d.device)}
                       {d.browser ? ` · ${d.browser}` : ""}
                       {d.updated_at ? ` · ${d.updated_at.slice(5, 10).replace("-", "/")}` : ""}
                     </p>
                   ))}
+
+                  {knownDevicesOf(m.id).length === 0 && (
+                    <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                      알림은 켜져 있어요 · 기기 정보는 다음 접속 때 채워져요
+                    </p>
+                  )}
                 </div>
               )}
 
